@@ -1,0 +1,17 @@
+# Child repos live inside this folder but are never part of the parent repo
+/prompt-battle-api/
+/prompt-battle-ui/
+
+# Secrets
+.env
+.env.local
+.claude/settings.local.json
+
+# Local data from docker compose
+data/
+
+# OS and editors
+.DS_Store
+.idea/
+.vscode/
+*.log
