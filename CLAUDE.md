@@ -3,7 +3,7 @@
 Live game for EPAM Community Palooza (2026-12-02), played at the same time in Medellín and Bogotá: ~50 players per city on phones write prompts, the API generates images with one shared model and seed, an embedding model scores similarity to a target, and each city's top 5 are revealed 5 → 1 on that city's projector.
 
 This folder is the **parent project**: decisions, specs, design rules and Claude Code configuration. Code lives in two child repos cloned inside it (and git-ignored here):
-- `prompt-battle-api/` → github.com/ewcastroh/prompt-battle-api (Java 25, Spring Boot 4.1.x, Spring AI 2.0.x)
+- `prompt-battle-api/` → github.com/ewcastroh/prompt-battle-api (Java 25, Spring Boot 4.2.x, Spring AI 2.1.x; see D-014)
 - `prompt-battle-ui/` → github.com/ewcastroh/prompt-battle-ui (Angular 22 single-page app)
 
 ## Read before planning or changing a feature

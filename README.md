@@ -11,7 +11,7 @@ This repo holds the architecture and business decisions, the specs, the design r
 | Repo | What | Stack | Hosted on |
 |---|---|---|---|
 | [prompt-battle-kit](https://github.com/ewcastroh/prompt-battle-kit) (this one) | Decisions, docs, Claude Code config | Markdown | — |
-| [prompt-battle-api](https://github.com/ewcastroh/prompt-battle-api) | Game server | Java 25, Spring Boot 4.1, Spring AI 2.0 | Railway |
+| [prompt-battle-api](https://github.com/ewcastroh/prompt-battle-api) | Game server | Java 25, Spring Boot 4.2, Spring AI 2.1 | Railway |
 | [prompt-battle-ui](https://github.com/ewcastroh/prompt-battle-ui) | Player, stage and admin screens | Angular 22 | Cloudflare Pages (GitHub Pages backup) |
 
 ## Set up

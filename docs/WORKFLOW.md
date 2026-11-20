@@ -122,8 +122,8 @@ Follow `docs/RUNBOOK.md` (written in I2). Summary per city:
 ## What to cut if you're behind (in this order)
 1. Automatic prompt translation and LLM moderation (leave them off).
 2. Mini-podium after round 1.
-3. Load split between fal.ai and BFL (only if the fal.ai limit is ≥ 30).
-4. Backups 3 and 4 (OpenAI, Gemini) and the emergency provider (Pollinations).
+3. The Cohere embedding adapter (no key; D-011).
+4. (Done in phase 0: the Runware, OpenAI, Gemini image and Pollinations adapters are not built, D-011.)
 5. LLM commentary (the canned ones remain).
 6. The GitHub Pages backup deploy.
 

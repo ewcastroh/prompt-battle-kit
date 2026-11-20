@@ -1,7 +1,7 @@
 # Prompt Battle — Product & Technical Spec
 
-Version 2.0 · 2026-11-20 · Owner: Eimer Castro (Java Americas community)
-Replaces v1.0 (2026-11-19). Every change from v1 is recorded in `docs/DECISIONS.md`.
+Version 2.1 · 2026-11-20 · Owner: Eimer Castro (Java Americas community)
+Replaces v1.0 (2026-11-19). Every change from v1 is recorded in `docs/DECISIONS.md`. v2.1 applies phase 0 decisions D-011…D-020; where details differ, `docs/API.md` is the contract.
 UI copy is Spanish (default) and English. Code, comments, logs, commits and docs are English.
 
 ---
@@ -100,7 +100,7 @@ On close:
 - The probe (§7.6) embeds the same image twice and reports the max absolute difference. If it exceeds 1e-4, scoring averages two embedding calls per image. The switch is automatic and visible in admin.
 
 ### 4.3 Embedding failover and consistency
-- Compute embeddings eagerly and asynchronously after each successful generation; cache by `(imageId, embeddingProvider)`.
+- Compute embeddings asynchronously; cache by `(imageId, embeddingProvider)`. `EMBEDDING_MODE=entries` (default, D-013) embeds an attempt when it becomes an entry plus missing entries at close; `eager` embeds every successful generation.
 - **Never mix embedding providers within a city run.** If the run's embedding provider fails at scoring time, re-embed the target, anchors and every entry of that city run with the next provider in `EMBEDDING_PROVIDER_CHAIN`, recompute the floor, and record which provider scored the run.
 - Close → results ready must take ≤ 15 s with the primary provider.
 
@@ -127,12 +127,12 @@ interface ImageGenerator {
 | providerId | Role | Default model (env var) | Seed | Notes |
 |---|---|---|---|---|
 | `fal` | Primary | `fal-ai/flux-2/klein/9b` (`FAL_MODEL`) | yes | **Queue API** (submit, then poll status, then fetch result), never sync `fal.run`. Send square 1024×1024, `output_format: jpeg`, `enable_safety_checker: true`. A flagged image comes back **black** with `has_nsfw_concepts`: map it to `SAFETY_BLOCKED`. |
-| `bfl` | Backup 1, same model | FLUX.2 [klein] 9B (`BFL_MODEL`) | yes | Submit, then poll the returned `polling_url`. Up to 24 concurrent requests. Results expire after 10 minutes: download immediately. |
-| `runware` | Same model, position decided after load test | FLUX.2 [klein] 9B (`RUNWARE_MODEL`) | yes | Concurrency limit not published; `429` with `Retry-After`, `serviceOverloaded` with `retryAfter`. |
-| `openai` | Last resort, different vendor | `gpt-image-2.5-flare` (`OPENAI_IMAGE_MODEL`), quality `low` (`OPENAI_IMAGE_QUALITY`) | no | Slow (10–20 s); returns base64. |
-| `gemini` | Last resort | `gemini-nano-banana-2.1` (`GEMINI_IMAGE_MODEL`) | check docs | Paid tier only. |
+| `bfl` | Backup 1 and overflow (D-012), same model | FLUX.2 [klein] 9B (`BFL_MODEL`) | yes | Submit, then poll the returned `polling_url`. Up to 24 concurrent requests. Results expire after 10 minutes: download immediately. |
+| `runware` | **Not built (D-011)** | FLUX.2 [klein] 9B (`RUNWARE_MODEL`) | yes | Concurrency limit not published; `429` with `Retry-After`, `serviceOverloaded` with `retryAfter`. |
+| `openai` | **Not built (D-011)** | `gpt-image-2.5-flare` (`OPENAI_IMAGE_MODEL`), quality `low` (`OPENAI_IMAGE_QUALITY`) | no | Slow (10–20 s); returns base64. |
+| `gemini` | **Not built (D-011)** | `gemini-nano-banana-2.1` (`GEMINI_IMAGE_MODEL`) | check docs | Paid tier only. |
 | `fake` | Tests, dev, load | n/a | yes | Deterministic image from `hash(prompt, seed)`; configurable latency, failure rate and concurrency limit. |
-| `pollinations` | Emergency only | (`POLLINATIONS_MODEL`) | yes | Keyless, no SLA. Enabled only when `ALLOW_KEYLESS_EMERGENCY=true`. |
+| `pollinations` | **Not built (D-011)** | (`POLLINATIONS_MODEL`) | yes | Keyless, no SLA. Enabled only when `ALLOW_KEYLESS_EMERGENCY=true`. |
 
 Implementation notes:
 - Use Spring `RestClient` for image and embedding adapters (thin, explicit, easy to test with WireMock). Spring AI does not cover every provider here and its option classes can lag new model parameters.
@@ -144,7 +144,7 @@ The API must refuse to start if any configured model ID matches `forbidden-model
 - Older generations we do not want even if still online: `dall-e-2`, `dall-e-3`, `gemini-2.5-flash-image`.
 
 ### 5.4 Provider selection and failover
-- `IMAGE_PROVIDER_CHAIN` (default `fal,bfl,runware,openai,gemini`). Providers without a key are skipped.
+- `IMAGE_PROVIDER_CHAIN` (default `fal,bfl`, D-011). Providers without a key are skipped.
 - Provider health and the active provider are **event-wide** (shared by both cities).
 - When a city starts a round, the run's provider = the current active provider. Record it on the run.
 - Circuit breaker per provider: 3 failures of kind `TIMEOUT|PROVIDER_ERROR|RATE_LIMITED|INVALID_RESPONSE` within 30 s → open for 60 s → the active provider switches to the next healthy provider for **all open runs**, and every admin sees an alert. `SAFETY_BLOCKED` never counts as a failure.
@@ -154,7 +154,7 @@ The API must refuse to start if any configured model ID matches `forbidden-model
 
 ### 5.5 Concurrency and queue
 - One bounded executor per provider with its own limit: `FAL_MAX_CONCURRENCY` (set to the limit shown in the fal.ai dashboard), `BFL_MAX_CONCURRENCY` (default 24), `RUNWARE_MAX_CONCURRENCY` (default 4 until load-tested), `OPENAI_MAX_CONCURRENCY`, `GEMINI_MAX_CONCURRENCY`. One FIFO queue shared by both cities. The player sees their queue position.
-- **Load split (off by default):** `IMAGE_LOAD_SPLIT` (e.g. `fal,bfl`) sends each new job to the listed provider with the most free slots. Use only providers that run the same model. Every attempt still records its provider. Turned on only if fal.ai's dashboard limit stays below about 30.
+- **Load split (on by default, D-012):** `IMAGE_LOAD_SPLIT=fal,bfl` sends each new job to the first listed healthy provider with a free slot (overflow); otherwise it waits in the FIFO. Use only providers that run the same model. Every attempt still records its provider.
 - Timeouts per provider: connect 5 s, total `IMAGE_TIMEOUT_SECONDS` (default 45), including queue polling.
 - Store output as JPEG quality 85 at 1024×1024 plus a 384 px thumbnail. Image IDs are random UUIDs.
 
@@ -204,11 +204,11 @@ The API must refuse to start if any configured model ID matches `forbidden-model
                  |            |            |
         image providers   embeddings   commentary (Spring AI → Anthropic)
 ```
-- The UI and API live on different origins. The API enables CORS for `CORS_ALLOWED_ORIGINS` (the Cloudflare Pages URL, the GitHub Pages URL, and local dev origins) with methods `GET, POST, PUT, DELETE`, request headers `Authorization, X-Admin-Token, Content-Type, If-None-Match`, and **exposed** header `ETag`.
-- The UI's API base URL is configuration, never hard-coded. Phase 0 chooses the mechanism (build-time variable or runtime `config.json`) so the same code runs on Cloudflare Pages, GitHub Pages and Docker Compose.
+- The UI and API live on different origins. The API enables CORS for `CORS_ALLOWED_ORIGINS` (the Cloudflare Pages URL, the GitHub Pages URL, and local dev origins) with methods `GET, POST, PUT, DELETE`, request headers `Authorization, X-Admin-Token, Content-Type, If-None-Match`, and **exposed** headers `ETag, Date, Retry-After, Content-Disposition` (D-019).
+- The UI's API base URL is configuration, never hard-coded: a runtime `config.json` (D-017), so the same build runs on Cloudflare Pages, GitHub Pages and Docker Compose.
 
 ### 7.2 API stack
-- Java 25, Maven wrapper, Spring Boot 4.1.x (latest stable patch), Spring AI 2.0.x (latest stable patch). Check versions when scaffolding.
+- Java 25, Maven wrapper, Spring Boot 4.2.0, Spring AI 2.1.0 (D-014). Pin exact versions.
 - Spring AI `ChatClient` with the Anthropic model for commentary (and optional translation/moderation). This keeps a visible "Java + Spring AI" story for the community.
 - ZXing for QR generation. `ImageIO` (or a small library) for thumbnails.
 - Errors as RFC 9457 `ProblemDetail` with a machine-readable `code` property and optional `params` (see §9.5).
@@ -222,7 +222,7 @@ The API must refuse to start if any configured model ID matches `forbidden-model
 - **Exactly one instance.** Document this in the runbook, the Dockerfile comments and the Railway settings (replicas = 1, serverless off).
 
 ### 7.5 UI stack
-- Angular 22 (latest stable), standalone components, signals, zoneless change detection, Signal Forms, plain single-page app (no SSR).
+- Angular 22.3.0 (D-014), standalone components, signals, zoneless change detection, Signal Forms, plain single-page app (no SSR).
 - Transloco for i18n (§10.2). Plain modern CSS with design tokens (§10.3, `DESIGN.md`). No Tailwind, no component library.
 - Vitest for unit tests; Playwright for end-to-end smoke tests and screenshots.
 - **No runtime CDN calls:** fonts, icons and any JS library (confetti) are bundled or self-hosted. Images and the QR come from the API.
@@ -278,7 +278,7 @@ Header `X-Admin-Token`. "Own city" = the city of the token.
 `GET /img/{uuid}.jpg`, `GET /img/{uuid}_thumb.jpg`, served by the API with long-lived cache headers.
 
 ### 9.5 Error codes
-Every error response is a `ProblemDetail` with `code` (UPPER_SNAKE_CASE) and optional `params` for interpolation. The UI maps `code` to the translation key `errors.<CODE>`. Initial set: `NICKNAME_INVALID`, `NICKNAME_TAKEN`, `NICKNAME_BLOCKED`, `CITY_NOT_FOUND`, `UNAUTHORIZED`, `PLAYER_KICKED`, `ROUND_NOT_OPEN`, `GENERATION_IN_FLIGHT`, `NO_ATTEMPTS_LEFT`, `PROMPT_INVALID`, `PROMPT_BLOCKED`, `ATTEMPT_NOT_FOUND`, `ATTEMPT_NOT_SELECTABLE`, `GENERATION_FAILED`, `INVALID_TRANSITION`, `ROUND_LOCKED`, `RATE_LIMITED`, `ADMIN_FORBIDDEN`, `RESET_NOT_CONFIRMED`, `INTERNAL_ERROR`. Phase 0 may add codes; it must not remove them.
+Every error response is a `ProblemDetail` with `code` (UPPER_SNAKE_CASE) and optional `params` for interpolation. The UI maps `code` to the translation key `errors.<CODE>`. Initial set: `NICKNAME_INVALID`, `NICKNAME_TAKEN`, `NICKNAME_BLOCKED`, `CITY_NOT_FOUND`, `UNAUTHORIZED`, `PLAYER_KICKED`, `ROUND_NOT_OPEN`, `GENERATION_IN_FLIGHT`, `NO_ATTEMPTS_LEFT`, `PROMPT_INVALID`, `PROMPT_BLOCKED`, `ATTEMPT_NOT_FOUND`, `ATTEMPT_NOT_SELECTABLE`, `GENERATION_FAILED`, `INVALID_TRANSITION`, `ROUND_LOCKED`, `RATE_LIMITED`, `ADMIN_FORBIDDEN`, `RESET_NOT_CONFIRMED`, `INTERNAL_ERROR`. Phase 0 may add codes; it must not remove them. Phase 0 added the codes and endpoints listed in `docs/API.md` (D-019).
 
 ## 10. UI
 
@@ -310,7 +310,7 @@ Every error response is a `ProblemDetail` with `code` (UPPER_SNAKE_CASE) and opt
 - Lobby: city name, big QR, short URL, joined counter, nicknames appearing.
 - Round open: target image large, huge countdown, submissions counter. No player images.
 - Closing/scoring: "La IA está evaluando…" / "The AI is scoring…" animation.
-- Mini-podium and podium: one entry per step — rank, nickname, entry image beside the target, score counting up over ~1.5 s, commentary line. #1 gets confetti (bundled). After #1: each scored round's hidden prompt.
+- Mini-podium and podium: one entry per step — rank, nickname, the entry's prompt (D-016), entry image beside the target (final podium: the player's best-scoring entry, D-015), score counting up over ~1.5 s, commentary line. #1 gets confetti (bundled). After #1: each scored round's hidden prompt.
 - The stage advances only through its city admin's actions.
 
 ### 10.6 Admin
@@ -326,16 +326,15 @@ Round builder (generate target preview from a prompt, or upload; shared), start/
 | `CITIES` | `mde:Medellín,bog:Bogotá` | Cities, `code:name` |
 | `ADMIN_TOKEN_<CITY>` | — | One per city, required, ≥ 24 chars |
 | `DATA_DIR` | `./data` | Snapshot + images |
-| `IMAGE_PROVIDER_CHAIN` | `fal,bfl,runware,openai,gemini` | Failover order |
-| `IMAGE_LOAD_SPLIT` | (empty) | Same-model providers to split load across, e.g. `fal,bfl` |
-| `FAL_KEY`, `FAL_MODEL`, `FAL_MAX_CONCURRENCY` | —, `fal-ai/flux-2/klein/9b`, `2` | Primary; raise concurrency to the dashboard limit |
-| `BFL_API_KEY`, `BFL_MODEL`, `BFL_MAX_CONCURRENCY` | —, klein 9B id from docs, `24` | Backup 1 |
-| `RUNWARE_API_KEY`, `RUNWARE_MODEL`, `RUNWARE_MAX_CONCURRENCY` | —, klein 9B id from docs, `4` | Same model |
-| `OPENAI_API_KEY`, `OPENAI_IMAGE_MODEL`, `OPENAI_IMAGE_QUALITY`, `OPENAI_MAX_CONCURRENCY` | —, `gpt-image-2.5-flare`, `low`, `8` | Last resort |
-| `GEMINI_API_KEY`, `GEMINI_IMAGE_MODEL`, `GEMINI_MAX_CONCURRENCY` | —, `gemini-nano-banana-2.1`, `8` | Last resort |
-| `EMBEDDING_PROVIDER_CHAIN` | `gemini,cohere` | Embedding failover |
-| `GEMINI_EMBEDDING_MODEL` | `gemini-embedding-2` | Primary embeddings |
-| `COHERE_API_KEY`, `COHERE_EMBEDDING_MODEL` | —, `embed-v4.0` | Backup embeddings |
+| `IMAGE_PROVIDER_CHAIN` | `fal,bfl` | Failover order (D-011) |
+| `IMAGE_LOAD_SPLIT` | `fal,bfl` | Same-model providers for overflow (D-012); empty = off |
+| `FAL_KEY`, `FAL_MODEL`, `FAL_MAX_CONCURRENCY` | —, `fal-ai/flux-2/klein/9b`, `10` | Primary; concurrency = the dashboard limit |
+| `BFL_API_KEY`, `BFL_MODEL`, `BFL_MAX_CONCURRENCY` | —, `flux-2-klein-9b`, `24` | Backup 1 and overflow |
+| `GEMINI_API_KEY` | — | Gemini embeddings (free tier, D-013) |
+| `EMBEDDING_PROVIDER_CHAIN` | `gemini,cohere` | Embedding failover; providers without a key are skipped |
+| `EMBEDDING_MODE` | `entries` | `entries` or `eager` (D-013) |
+| `GEMINI_EMBEDDING_MODEL`, `GEMINI_EMBEDDING_DIMENSIONS`, `GEMINI_EMBEDDING_RPM` | `gemini-embedding-2`, `768`, set from the AI Studio dashboard | Primary embeddings |
+| `COHERE_API_KEY`, `COHERE_EMBEDDING_MODEL` | —, `embed-v4.0` | Optional backup embeddings |
 | `ANTHROPIC_API_KEY`, `COMMENTARY_MODEL` | —, `claude-sonnet-5-5` | Commentary (alt `claude-haiku-5-5`) |
 | `IMAGE_TIMEOUT_SECONDS` | `45` | Per call |
 | `ATTEMPTS_PER_ROUND` | `3` | Default per round |
@@ -344,12 +343,11 @@ Round builder (generate target preview from a prompt, or upload; shared), start/
 | `MINI_PODIUM_ENABLED` | `true` | Top 3 after scored rounds |
 | `PROMPT_TRANSLATE_TO_EN` | `false` | §5.6 |
 | `PROMPT_LLM_MODERATION` | `false` | §6.3 |
-| `ALLOW_KEYLESS_EMERGENCY` | `false` | Enables `pollinations` |
 
 Spring profile `fake`: every provider is fake; no keys needed; the app is fully playable offline.
 
 ### 11.2 UI
-- `API_BASE_URL` (mechanism chosen in phase 0). Nothing else; no secrets ever reach the UI.
+- `API_BASE_URL` through a runtime `config.json` (D-017). Nothing else; no secrets ever reach the UI.
 
 ## 12. Deployment and CI/CD
 Summary; details, costs and setup steps in `docs/DEPLOYMENT.md`.
