@@ -47,7 +47,7 @@ Done means: `./mvnw verify` passes and you show me the output. Then commit "a1: 
 ## A2 — Real providers, failover and scoring
 
 ```text
-Work in prompt-battle-api/. Implement phase A2 from docs/PLAN.md: the fal (queue API), bfl, runware, openai and gemini image adapters, the gemini and cohere embedding adapters, the per-provider executors with their own concurrency limits and the shared FIFO queue, the optional load split, the circuit breaker and event-wide failover with alerts, eager embeddings, re-embedding a whole city run on embedding failover, the determinism check, the admin provider endpoints and the probe endpoint.
+Work in prompt-battle-api/. Implement phase A2 from docs/PLAN.md: the fal (queue API) and bfl image adapters (Runware, OpenAI and Gemini image are not built, D-011), the gemini and cohere embedding adapters, the per-provider executors with their own concurrency limits and the shared FIFO queue, the optional load split, the circuit breaker and event-wide failover with alerts, eager embeddings, re-embedding a whole city run on embedding failover, the determinism check, the admin provider endpoints and the probe endpoint.
 
 Follow SPEC sections 4.2, 4.3, 5, 7.6, 11 and 14.1 (items 2 and 3).
 Before each adapter, re-read that provider's current docs (start from docs/PROVIDERS.md); put model IDs only in configuration. Test every adapter with WireMock (success, 429 then success, timeout, safety block including fal's black-image flag, malformed response, queue polling where it applies). Test that SAFETY_BLOCKED never triggers failover, that embeddings are never mixed within a city run, and that the load split only uses listed providers.

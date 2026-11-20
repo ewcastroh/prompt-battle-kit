@@ -133,7 +133,7 @@ Runtime `config.json`, one build for every target:
 - WireMock per adapter (SPEC §14.1-2):
   - fal: submit → `IN_QUEUE` → `IN_PROGRESS` → `COMPLETED`; `has_nsfw_concepts: [true]` → `SAFETY_BLOCKED`; 422 `content_policy_violation` → `SAFETY_BLOCKED`; 429 then success; `COMPLETED` with `error`; timeout; malformed JSON.
   - BFL: `Pending` → `Ready` + sample download; `Request Moderated` and `Content Moderated` → `SAFETY_BLOCKED`; 429 then success; 402 no retry; expired sample (404) → `PROVIDER_ERROR`; timeout; malformed.
-  - Gemini: success (asserts `inline_data` and the dimensions field), 429 `rate_limit_exceeded` then success, `quota_exceeded`, malformed.
+  - Gemini: success (asserts `inlineData` and `embedContentConfig.outputDimensionality`), per-minute 429 then success, daily 429 (`QuotaFailure` per day), malformed.
   - Cohere: success, 429, malformed (if built).
 - `FailoverTest`: 3 failures switch the active provider for all open runs with an alert; `SAFETY_BLOCKED` ×10 never switches; a forced switch raises `PROVIDER_FORCED`.
 - `LoadSplitTest`: overflow goes to BFL only when fal's slots are full; providers outside the list are never used; each attempt records its provider.
@@ -291,7 +291,7 @@ Runtime `config.json`, one build for every target:
 - Status `IN_QUEUE` (`queue_position`) → `IN_PROGRESS` → `COMPLETED`. A failure can still be `COMPLETED` with `error`, `error_type`.
 - Body: `{prompt, seed, image_size:"square_hd" | {width:1024,height:1024}, num_inference_steps:4, num_images:1, output_format:"jpeg", enable_safety_checker:true}`. There is no guidance parameter.
 - Result: `{images:[{url,width,height,content_type}], seed, has_nsfw_concepts:[bool], timings}`. A flagged image is black → `SAFETY_BLOCKED`. 422 `content_policy_violation` → `SAFETY_BLOCKED`.
-- 429 `concurrent_requests_limit` with `X-Fal-Needs-Retry: 1`. Only `IN_PROGRESS` counts toward the limit.
+- The queue never answers 429 `concurrent_requests_limit` (only sync `fal.run` does): over the limit requests wait `IN_QUEUE`. Only `IN_PROGRESS` counts.
 - Account limit: US$10 bought in the last 4 weeks → 10 concurrent (dashboard: $100→20, $500→30, $1000+→40).
 - `X-Fal-Request-Start-Timeout` header. Price ≈ US$0.006/MP.
 
@@ -302,11 +302,11 @@ Runtime `config.json`, one build for every target:
 - 24 concurrent. 429 → exponential backoff; 402 → no retry. US$0.015 per 1024².
 
 **Gemini embeddings: `gemini-embedding-2`** ([model](https://aistudio.google.com/docs/models/gemini-embedding-2), [guide](https://aistudio.google.com/docs/embeddings), [reference](https://aistudio.google.com/api-reference/embeddings), [errors](https://aistudio.google.com/docs/api-errors), [rate limits](https://aistudio.google.com/docs/rate-limits), [terms](https://aistudio.google.com/docs/terms))
-- `POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent`, `x-goog-api-key`, body `{content:{parts:[{inline_data:{mime_type:"image/jpeg",data:<b64>}}]}, output_dimensionality:768}` (the reference nests it as `embedContentConfig.outputDimensionality`; confirm in the probe).
+- `POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent`, `x-goog-api-key`, body `{content:{parts:[{inlineData:{mimeType:"image/jpeg",data:<b64>}}]}, embedContentConfig:{outputDimensionality:768}}` (re-read in A2: the top-level field is deprecated).
 - Response `{embedding:{values:[…]}, usageMetadata}`. Several parts merge into **one** vector: one image per call.
 - 128–3072 dims, auto-normalized. No taskType. ≈ 267 tokens per image (estimate).
 - Free tier (dashboard, 2026-11-20): 100 RPM, 30K TPM, 1K RPD; no Batch API; data may be used to improve Google products. Colombia is allowed.
-- 429 `rate_limit_exceeded` / `quota_exceeded`. Paid tier: US$0.00012 per image.
+- 429 `RESOURCE_EXHAUSTED` (google.rpc); a `QuotaFailure` with a per-day quota id is the daily limit. Paid tier: US$0.00012 per image.
 
 **Cohere: `embed-v4.0`** (optional) ([embed](https://docs.cohere.com/reference/embed), [rate limits](https://docs.cohere.com/docs/rate-limits))
 - `POST https://api.cohere.com/v2/embed`, Bearer, `{model, input_type:"image", images:["data:image/jpeg;base64,…"], embedding_types:["float"], output_dimension:1024}` → `embeddings.float[][]`.

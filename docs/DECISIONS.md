@@ -190,6 +190,28 @@ Status values: **Accepted** (in force), **Superseded** (replaced by a later entr
    - **Check at deploy:** confirm `X-Forwarded-For` holds the real client address on Railway (DEPLOYMENT.md).
 5. **Local configuration comes from `.env`.** The API reads `./.env` itself (UTF-8, the `docker compose` `env_file` format), so nothing is exported. Real environment variables override it, and tests never read it.
 
+## D-023 · Phase A2: providers, failover and scoring — Accepted (2026-11-20)
+1. **Adapter scope (owner, confirms D-011).** A2 builds the fal.ai (queue API) and Black Forest Labs image adapters and the Gemini and Cohere embedding adapters. Runware, OpenAI and Gemini image stay unbuilt. The A2 prompt in `docs/PROMPTS.md` is corrected.
+2. **Load split with failover and a forced provider (owner).** Each player job goes to the active provider first. If that provider is listed in `IMAGE_LOAD_SPLIT`, jobs overflow to the other listed providers while they are healthy. Automatic failover and a forced switch only change which provider is first.
+   - There is no automatic fail-back. A recovered provider takes overflow again, and an admin can force it back to first.
+   - **Why:** one rule for failover and force, and the 34 slots stay available.
+3. **Smaller A2 choices:**
+   - A forced provider's circuit closes at once (manual override).
+   - If every circuit is open, player attempts wait in the shared queue without using an attempt. After 60 s a half-open trial decides. Calibration anchors and target previews pinned to an open provider fail at once.
+   - Only the half-open trial call, or a probe, can close an open circuit. Results of calls that started before it opened are ignored.
+   - Retries: one per HTTP call (429, 5xx, connection errors), inside the job's `IMAGE_TIMEOUT_SECONDS` budget. A 5 s connect timeout with budget left counts as a connection error. 4xx, fal's `X-Fal-Needs-Retry: 0` and BFL's 402 are never retried.
+   - fal requests send `x-app-fal-disable-fallback: true` (fal must not answer with another model) and `X-Fal-Request-Start-Timeout`. A request we give up on before it completes is cancelled in the background.
+   - Previews and calibration anchors use the active provider, or the first chain provider whose circuit isn't open.
+   - **Determinism:** the latest probe decides averaging per embedding provider, and every vector of one run uses the same mode. The result and the daily Gemini request count are kept in the snapshot.
+   - The target and anchors are embedded when a scored round starts. They are cached and shared by both cities. At most 8 embedding calls run at once per provider.
+   - Prefetches never wait, neither for a call slot nor for the rate limit: they are skipped, and scoring embeds what is missing.
+   - A failed scoring try never interrupts calls still in flight: they are shared with the retry and with the other city.
+   - The event reset clears circuits and provider counters. It keeps the active provider, the determinism result and the daily quota count, and lets the `EMBEDDING_QUOTA_LOW` alert fire again.
+   - **Gemini:** the size goes in `embedContentConfig.outputDimensionality` (the top-level field is deprecated). A 429 whose `QuotaFailure` is per day stops Gemini calls until midnight Pacific: the run fails over, or stays `SCORING_FAILED`. Any other 429 holds every Gemini call for its `RetryInfo` delay (1 s without one), so the scorer's second try waits instead of failing at once.
+   - **Cohere:** `inputs` + `image_url` + `input_type: search_document`, 1024 dimensions.
+   - The probe embeds a locally rendered test image. Until A3 its commentary row is `NOT_CONFIGURED`.
+   - **Tests:** `org.wiremock:wiremock-standalone` 3.13.2, PLAN's fallback. WireMock 4 is still beta, and the Spring Boot integration pulls an unshaded Jetty.
+
 ## D-024 · Phase U2 player choices — Accepted (2026-11-20)
 1. **The prompt stays after Generate, and an identical prompt is blocked.** The text stays in the editor so players can tweak it. Generating a prompt identical (after trimming and collapsing whitespace) to one the player already generated in the round is blocked, with a visible reason.
    - **Why:** the round's fixed seed gives the same image for the same prompt, so a repeat would only spend an attempt. Blocked and failed prompts can be retried, because they didn't use an attempt.

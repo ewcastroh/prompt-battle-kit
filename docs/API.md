@@ -373,8 +373,12 @@ One column per scored round played in the city. Prompts are not included.
 }
 ```
 `circuit`: `CLOSED`, `OPEN`, `HALF_OPEN`.
+- `chain` and `loadSplit` are `IMAGE_PROVIDER_CHAIN` and `IMAGE_LOAD_SPLIT` as configured; `queueLength` counts jobs waiting in the shared FIFO.
+- `image` lists every provider of both lists. A provider without a key has `configured: false`, `circuit: null`, null latencies and zero counters. `lastError` is `null` until a failure (safety blocks are not errors).
+- `embedding` lists `EMBEDDING_PROVIDER_CHAIN`. `healthy` = configured, daily quota left, and the last call didn't fail. `determinism` fields are `null` (and `averaging` false) until the first probe.
+- `commentary.configured` is true only when a real commentary model is wired (A3).
 
-**`POST /api/admin/providers/active`** `{ "providerId": "bfl" }` → 200 providers object. Raises alert `PROVIDER_FORCED {providerId, byCity}`. Errors: `PROVIDER_NOT_FOUND`.
+**`POST /api/admin/providers/active`** `{ "providerId": "bfl" }` → 200 providers object. The provider becomes active for both cities and its circuit closes. Raises alert `PROVIDER_FORCED {providerId, byCity}`. Errors: `PROVIDER_NOT_FOUND` (not a configured provider of the chain).
 
 **`POST /api/admin/providers/probe`** → 200 (synchronous, may take up to ~60 s; it spends real credits)
 ```json
@@ -383,6 +387,9 @@ One column per scored round played in the city. Prompts are not included.
   { "kind": "EMBEDDING", "providerId": "gemini", "model": "gemini-embedding-2", "ok": true, "latencyMs": 610, "errorKind": null, "determinismMaxDiff": 0.0 },
   { "kind": "COMMENTARY", "providerId": "anthropic", "model": "claude-sonnet-5-5", "ok": true, "latencyMs": 2100, "errorKind": null, "determinismMaxDiff": null } ] }
 ```
+- One `IMAGE` row per configured image provider (it runs even while that provider's circuit is open, and a success closes it), one `EMBEDDING` row per configured embedding provider (a test image embedded twice), one `COMMENTARY` row.
+- `errorKind`: `IMAGE` → `SAFETY_BLOCKED`, `RATE_LIMITED`, `TIMEOUT`, `PROVIDER_ERROR`, `INVALID_RESPONSE`. `EMBEDDING` → `RATE_LIMITED`, `QUOTA_EXHAUSTED`, `TIMEOUT`, `PROVIDER_ERROR`, `INVALID_RESPONSE`. `COMMENTARY` → `NOT_CONFIGURED` (no live model, `latencyMs: null`), `TIMEOUT`, `PROVIDER_ERROR`, `INVALID_RESPONSE`. `latencyMs` is also set for failed rows.
+- Both admins probing at once share one run.
 
 **`GET /api/admin/alerts?since={instant}`** → 200, newest first, at most 100
 ```json
@@ -407,3 +414,4 @@ One column per scored round played in the city. Prompts are not included.
   - ETag on `/api/me` and admin state.
   - `prompt` in reveal entries (D-016).
 - 1.1 (2026-11-20): alert code `EMBEDDING_QUOTA_LOW` (Gemini free-tier daily quota, D-013).
+- 1.2 (2026-11-20, phase A2, D-023): clarified the providers object (unconfigured providers, `lastError`, `healthy`, `determinism`), that a forced provider's circuit closes, and the probe rows and `errorKind` values (`QUOTA_EXHAUSTED`, `NOT_CONFIGURED`). No field or endpoint changed.
