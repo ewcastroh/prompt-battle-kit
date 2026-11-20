@@ -94,7 +94,13 @@ Status values: **Accepted** (in force), **Superseded** (replaced by a later entr
   - A client-side limiter `GEMINI_EMBEDDING_RPM` and `GEMINI_EMBEDDING_DIMENSIONS=768`.
   - Backoff on 429.
 - **When scoring fails:** the run stays `ROUND_CLOSING` with status `SCORING_FAILED`, admins get an alert, and the admin can `rescore`.
-- **Owner action:** read the free-tier limits at aistudio.google.com/rate-limit. If the requests-per-day limit is below about 1,000, switch to the paid tier (cents for the event).
+- **Free-tier limits (AI Studio dashboard, 2026-11-20):** 100 requests/min, 30K tokens/min, 1,000 requests/day.
+  - **Usage:** ≈ 250 calls expected for the event. Worst case ≈ 615 (every attempt selected as an entry). If determinism averaging (2 calls per image) is switched on, the worst case is ≈ 1,230, which is over the daily limit.
+  - **Owner decision (2026-11-20): stay on the free tier, with guards:**
+    - The limiter enforces `GEMINI_EMBEDDING_RPM=90` and `GEMINI_EMBEDDING_TPM=27000`, counting tokens from `usageMetadata.promptTokenCount` (≈ 267 per image).
+    - A per-day counter (`GEMINI_EMBEDDING_RPD=1000`, reset at midnight Pacific time) raises the admin alert `EMBEDDING_QUOTA_LOW` at 80 %.
+    - Only scoring images (entries, targets, anchors) are embedded.
+  - **If the dry run shows averaging is needed:** enable billing (paid tier, cents for the event) and raise the three limits.
 - **Replaces:** the Gemini paid tier, the Cohere backup, and eager embedding of every attempt.
 
 ## D-014 · Versions — Accepted (2026-11-20)
@@ -165,4 +171,4 @@ Status values: **Accepted** (in force), **Superseded** (replaced by a later entr
 ---
 
 ## Open
-- **Gemini free-tier limits** for `gemini-embedding-2` (D-013): the owner reads them from the AI Studio dashboard. They set `GEMINI_EMBEDDING_RPM` and decide whether to move to the paid tier.
+- None. New open questions are added here with an `Open` status.

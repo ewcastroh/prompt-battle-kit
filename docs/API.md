@@ -388,7 +388,7 @@ One column per scored round played in the city. Prompts are not included.
 ```json
 [ { "id": "…", "at": "…", "code": "PROVIDER_SWITCHED", "city": null, "params": { "from": "fal", "to": "bfl" } } ]
 ```
-`city` is the city the alert is about (or `null` for event-wide). Alert codes (UI keys `alerts.<CODE>`): `PROVIDER_SWITCHED {from,to}`, `PROVIDER_FORCED {providerId,byCity}`, `CIRCUIT_OPEN {providerId}`, `CIRCUIT_CLOSED {providerId}`, `EMBEDDING_FAILOVER {from,to,roundId}`, `DETERMINISM_AVERAGING {providerId,maxDiff}`, `SCORING_FAILED {roundId}`, `CALIBRATION_FAILED {roundId}`, `PLAYER_FLAGGED {playerId,nickname}`, `COMMENTARY_FALLBACK {count}`.
+`city` is the city the alert is about (or `null` for event-wide). Alert codes (UI keys `alerts.<CODE>`): `PROVIDER_SWITCHED {from,to}`, `PROVIDER_FORCED {providerId,byCity}`, `CIRCUIT_OPEN {providerId}`, `CIRCUIT_CLOSED {providerId}`, `EMBEDDING_FAILOVER {from,to,roundId}`, `DETERMINISM_AVERAGING {providerId,maxDiff}`, `SCORING_FAILED {roundId}`, `CALIBRATION_FAILED {roundId}`, `PLAYER_FLAGGED {playerId,nickname}`, `COMMENTARY_FALLBACK {count}`, `EMBEDDING_QUOTA_LOW {used,limit}`.
 
 **`POST /api/admin/event/reset`** `{ "confirm": "RESET" }` → 204. Deletes the snapshot, all images, all round definitions, players and runs of **every** city. Tokens stop working (401). Errors: `RESET_NOT_CONFIRMED`.
 
@@ -406,3 +406,4 @@ One column per scored round played in the city. Prompts are not included.
   - `Date`, `Retry-After` and `Content-Disposition` exposed in CORS.
   - ETag on `/api/me` and admin state.
   - `prompt` in reveal entries (D-016).
+- 1.1 (2026-11-20): alert code `EMBEDDING_QUOTA_LOW` (Gemini free-tier daily quota, D-013).

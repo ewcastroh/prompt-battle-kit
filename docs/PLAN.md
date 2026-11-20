@@ -53,7 +53,7 @@ Runtime `config.json`, one build for every target:
 **Files (`prompt-battle-api/`):**
 - Build and repo: `pom.xml`, `mvnw`, `.mvn/`, `.gitignore`, `.env.example`, `CLAUDE.md`, `README.md`, `.github/workflows/ci.yml` (Temurin 25, `./mvnw -B verify`, actions pinned by SHA).
 - `config/`:
-  - `AppProperties` (`@ConfigurationProperties`, every SPEC §11.1 variable plus D-013 `EMBEDDING_MODE`, `GEMINI_EMBEDDING_RPM`, `GEMINI_EMBEDDING_DIMENSIONS`).
+  - `AppProperties` (`@ConfigurationProperties`, every SPEC §11.1 variable plus D-013 `EMBEDDING_MODE`, `GEMINI_EMBEDDING_RPM`/`_TPM`/`_RPD`, `GEMINI_EMBEDDING_DIMENSIONS`).
   - `ForbiddenModelsGuard` (reads `forbidden-models.txt`; fails startup on a match).
   - `ClockConfig`.
 - `city/`: `CityCatalog` (parses `CITIES`, validates codes `[a-z]{2,8}`), `AdminTokens` (`ADMIN_TOKEN_<CODE>` ≥ 24 chars, constant-time `MessageDigest.isEqual`).
@@ -121,7 +121,7 @@ Runtime `config.json`, one build for every target:
   - `LatencyStats` (p50 and p95 over the last 200 calls).
 - `scoring/`:
   - `GeminiEmbeddingProvider`: `:embedContent`, one image per content, 768 dims.
-  - `EmbeddingRateLimiter` (`GEMINI_EMBEDDING_RPM`, token bucket).
+  - `EmbeddingRateLimiter`: sliding minute window for RPM 90 and TPM 27K (tokens from `usageMetadata`); a daily counter (RPD 1000, midnight Pacific) with alert `EMBEDDING_QUOTA_LOW` at 80 %.
   - `EmbeddingService`: modes `entries` | `eager`; cache by `(imageId, provider)`; entries first at close.
   - `DeterminismCheck`: averaging mode when diff > 1e-4.
   - `RunScorer` failover: re-embed target, anchors and every entry with the next provider; records the provider.
@@ -139,13 +139,13 @@ Runtime `config.json`, one build for every target:
 - `LoadSplitTest`: overflow goes to BFL only when fal's slots are full; providers outside the list are never used; each attempt records its provider.
 - `QueueFairnessTest`: one FIFO across cities; per-provider limit never exceeded (concurrent counter); queue positions decrease.
 - `EmbeddingConsistencyTest`: a forced Gemini failure at scoring re-embeds the whole run (with a fake second provider); runs are never mixed; `SCORING_FAILED` + `rescore` path.
-- `EmbeddingModeTest`: in `entries` mode, non-entry attempts are never embedded; rate limiter respected.
+- `EmbeddingModeTest`: in `entries` mode, non-entry attempts are never embedded. `EmbeddingRateLimiterTest`: RPM, TPM and RPD limits, 80 % alert.
 - `DeterminismCheckTest`, `ProbeServiceTest` (WireMock).
 
 **Risks:**
 - fal's status and result URLs use only the app id: always use the URLs returned at submit.
 - The Gemini dimensions field placement conflicts between pages: WireMock asserts one form; the probe confirms it against the live API on day 1.
-- Free-tier quotas are unknown: the owner reads the dashboard and sets `GEMINI_EMBEDDING_RPM`.
+- Free-tier quota (100 RPM / 30K TPM / 1K RPD): `EmbeddingRateLimiterTest` covers all three, including the 80 % alert.
 - The two image paths (fal vs BFL) give different pixels for the same seed (accepted, D-012).
 
 **Out of A2:** Runware, OpenAI, Gemini image, Pollinations (D-011), Spring AI commentary, moderation.
@@ -305,7 +305,7 @@ Runtime `config.json`, one build for every target:
 - `POST https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent`, `x-goog-api-key`, body `{content:{parts:[{inline_data:{mime_type:"image/jpeg",data:<b64>}}]}, output_dimensionality:768}` (the reference nests it as `embedContentConfig.outputDimensionality`; confirm in the probe).
 - Response `{embedding:{values:[…]}, usageMetadata}`. Several parts merge into **one** vector: one image per call.
 - 128–3072 dims, auto-normalized. No taskType. ≈ 267 tokens per image (estimate).
-- Free tier: limits only in the AI Studio dashboard; no Batch API; data may be used to improve Google products. Colombia is allowed.
+- Free tier (dashboard, 2026-11-20): 100 RPM, 30K TPM, 1K RPD; no Batch API; data may be used to improve Google products. Colombia is allowed.
 - 429 `rate_limit_exceeded` / `quota_exceeded`. Paid tier: US$0.00012 per image.
 
 **Cohere: `embed-v4.0`** (optional) ([embed](https://docs.cohere.com/reference/embed), [rate limits](https://docs.cohere.com/docs/rate-limits))
@@ -340,7 +340,7 @@ Runtime `config.json`, one build for every target:
 | Risk | Mitigation |
 |---|---|
 | fal at 10 slots can't absorb a 100-player burst | Overflow to BFL (34 slots); queue position shown; load test with the real limits |
-| Gemini free-tier quota exhausted mid-event | `entries` mode (~250 calls per event), rate limiter, `rescore`; switch to paid if RPD < ~1,000 |
+| Gemini free-tier quota (1K/day) exhausted | `entries` mode (~250 calls), limiter + 80 % alert, `rescore`; enable billing if the dry run needs averaging |
 | Boot 4.2 / Spring AI 2.1 too new | Day-1 smoke; documented retreat (owner decides) |
 | fal vs BFL pixels differ for the same seed | Accepted (D-012); the provider is shown per entry in admin |
 | Budget: fal US$10 | Dev and CI on `fake`; `--real` ≤ 40 images; probe sparingly |

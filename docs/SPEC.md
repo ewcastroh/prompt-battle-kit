@@ -333,7 +333,8 @@ Round builder (generate target preview from a prompt, or upload; shared), start/
 | `GEMINI_API_KEY` | — | Gemini embeddings (free tier, D-013) |
 | `EMBEDDING_PROVIDER_CHAIN` | `gemini,cohere` | Embedding failover; providers without a key are skipped |
 | `EMBEDDING_MODE` | `entries` | `entries` or `eager` (D-013) |
-| `GEMINI_EMBEDDING_MODEL`, `GEMINI_EMBEDDING_DIMENSIONS`, `GEMINI_EMBEDDING_RPM` | `gemini-embedding-2`, `768`, set from the AI Studio dashboard | Primary embeddings |
+| `GEMINI_EMBEDDING_MODEL`, `GEMINI_EMBEDDING_DIMENSIONS` | `gemini-embedding-2`, `768` | Primary embeddings |
+| `GEMINI_EMBEDDING_RPM`, `GEMINI_EMBEDDING_TPM`, `GEMINI_EMBEDDING_RPD` | `90`, `27000`, `1000` | Client-side limits under the free tier (100 / 30K / 1K, D-013) |
 | `COHERE_API_KEY`, `COHERE_EMBEDDING_MODEL` | —, `embed-v4.0` | Optional backup embeddings |
 | `ANTHROPIC_API_KEY`, `COMMENTARY_MODEL` | —, `claude-sonnet-5-5` | Commentary (alt `claude-haiku-5-5`) |
 | `IMAGE_TIMEOUT_SECONDS` | `45` | Per call |

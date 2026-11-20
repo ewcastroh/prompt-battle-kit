@@ -78,7 +78,10 @@ No SLA. Disabled unless `ALLOW_KEYLESS_EMERGENCY=true`.
 | Backup | Cohere | `embed-v4.0` (multimodal) | `COHERE_API_KEY` |
 
 - **Decision (D-013): free tier.** On the free tier Google may use the inputs to improve its products and human reviewers may read them; on the paid tier it does not. Only AI-generated images are sent (no prompts, no photos). Colombia is an allowed region.
-- Free-tier rate limits are **not published**; they appear only at [aistudio.google.com/rate-limit](https://aistudio.google.com/rate-limit). **Owner action:** write them here and set `GEMINI_EMBEDDING_RPM`. If the daily limit is below about 1,000 requests, enable billing (the paid tier costs US$0.00012 per image, cents for the event).
+- Free-tier rate limits are not in the public docs; the [AI Studio dashboard](https://aistudio.google.com/rate-limit) showed on 2026-11-20 for `gemini-embedding-2`: **100 requests/min, 30K tokens/min, 1,000 requests/day**.
+  - The API stays under them with `GEMINI_EMBEDDING_RPM=90`, `GEMINI_EMBEDDING_TPM=27000` and `GEMINI_EMBEDDING_RPD=1000`, and an admin alert at 80 % of the day.
+  - Expected event use is ≈ 250 calls. The worst case with determinism averaging (≈ 1,230) would exceed the daily limit: if the dry run shows averaging is needed, enable billing (US$0.00012 per image, cents for the event).
+  - The daily quota resets at midnight Pacific time (03:00 in Colombia). Don't burn it testing on event day.
 - To save calls, `EMBEDDING_MODE=entries` embeds only entries (≈ 250 calls for the whole event) instead of every attempt.
 - Cohere: no key for now. A trial key allows only 5 image embeddings per minute and can't score an event.
 - Embedding cost for the whole event is cents.
