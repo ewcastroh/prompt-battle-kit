@@ -15,3 +15,7 @@ data/
 .idea/
 .vscode/
 *.log
+
+# Playwright (browser tool snapshots, logs and screenshots)
+.playwright/
+.playwright-mcp/

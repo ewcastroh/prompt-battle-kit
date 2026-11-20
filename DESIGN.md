@@ -178,7 +178,7 @@ From `motion`:
 
 ## 11. Open choices (confirm in U1)
 
-1. Exact color values in §3 (after contrast verification and a look on a real phone and projector).
-2. Fonts: Atkinson Hyperlegible Next + JetBrains Mono.
-3. Icon set: Lucide.
-4. Confetti: small bundled library vs CSS-only.
+1. Exact color values in §3: **kept** after contrast verification in U1 (D-021). Still check on a real phone and projector at the dry run.
+2. Fonts: Atkinson Hyperlegible Next + JetBrains Mono: **confirmed** (D-021).
+3. Icon set: Lucide, copied SVGs: **confirmed** (D-021).
+4. Confetti: small bundled library vs CSS-only. Open, decided in U3.

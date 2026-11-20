@@ -168,6 +168,13 @@ Status values: **Accepted** (in force), **Superseded** (replaced by a later entr
 11. `GET /api/me` includes attempt status and queue position, so a phone polls one URL.
 12. The limit of 30 writes per minute per token counts POSTs only.
 
+## D-021 · UI foundation choices — Accepted (2026-11-20, phase U1)
+- **Lint and format:** angular-eslint 22.8.0 (ESLint 10, typescript-eslint, template accessibility rules) and Prettier 3 (`format:check` in CI). Dev dependencies only.
+- **Fonts:** Atkinson Hyperlegible Next (body) and JetBrains Mono (headings, numbers), both SIL OFL 1.1. Self-hosted as variable Latin-subset `woff2` in `public/fonts` with their license files. No npm dependency.
+- **Icons:** Lucide (ISC). Only the icons in use are copied as inline SVG into the `icon` component, with the license in `THIRD_PARTY_NOTICES.md`. No npm dependency.
+- **Colors:** the DESIGN.md §3 values are kept unchanged. All 62 text and control pairs pass WCAG 2.2 AA in both themes (lowest: light success on bg 4.84:1, dark border-strong on raised 3.49:1).
+- **Still open:** confetti (DESIGN.md §11.4), decided in U3.
+
 ---
 
 ## Open
