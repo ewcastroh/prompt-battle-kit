@@ -66,7 +66,7 @@ Every 4xx/5xx is an RFC 9457 `ProblemDetail`:
 | `PROVIDER_NOT_FOUND` | 404 | Unknown provider id, or provider has no key | `{providerId}` |
 | `PROVIDER_UNAVAILABLE` | 503 | No healthy image provider (all circuits open or none configured) | — |
 | `ROUND_NOT_READY` | 409 | Scored round whose calibration is not `READY` | `{calibration}` |
-| `UPLOAD_INVALID` | 400 | Target upload missing, > 10 MB, or not JPEG/PNG/WebP | `{maxMb:10}` |
+| `UPLOAD_INVALID` | 400 | Target upload missing, > 10 MB, or not JPEG/PNG | `{maxMb:10}` |
 | `VALIDATION_FAILED` | 400 | Any other invalid field | `{field}` |
 | `SCORING_FAILED` | 409 | `rescore` called on a run that is not in `SCORING_FAILED`. Also an alert code | — |
 | `NOT_FOUND` | 404 | Unknown path or image | — |
@@ -89,7 +89,7 @@ The first 20 codes are SPEC §9.5; the rest were added in phase 0 (D-019). Codes
 - Players pause polling while the tab is hidden; the stage never pauses.
 
 **CORS** (`CORS_ALLOWED_ORIGINS`, comma-separated exact origins):
-- `Access-Control-Allow-Origin: <the request origin>` only for listed origins; other origins get no CORS headers (the browser blocks them).
+- `Access-Control-Allow-Origin: <the request origin>` only for listed origins; other origins get no CORS headers (the browser blocks them), and their preflight `OPTIONS` gets 403 with an empty body (D-022).
 - `Access-Control-Allow-Methods: GET, POST, PUT, DELETE`
 - `Access-Control-Allow-Headers: Authorization, X-Admin-Token, Content-Type, If-None-Match`
 - `Access-Control-Expose-Headers: ETag, Date, Retry-After, Content-Disposition`
@@ -119,9 +119,9 @@ The first 20 codes are SPEC §9.5; the rest were added in phase 0 (D-019). Codes
 Anything else → 409 `INVALID_TRANSITION`.
 
 Rules that shape the responses:
-- **Close and grace (D-018):** on close, new attempts and entry changes are rejected at once. Generations already queued or running may finish within `ROUND_GRACE_SECONDS`; a result arriving later is discarded (attempt `FAILED`, code `ROUND_NOT_OPEN`). A player without an entry gets their last `DONE` attempt as the entry (`auto: true`). Scoring starts when nothing is in flight for the run, or when grace ends.
+- **Close and grace (D-018):** on close, new attempts and entry changes are rejected at once. Generations already queued or running may finish within `ROUND_GRACE_SECONDS`; a result arriving later is discarded (attempt `FAILED`, code `ROUND_NOT_OPEN`). A player without an entry gets their last `DONE` attempt as the entry (`auto: true`). A generation that finishes within grace replaces an automatic entry (it is now the last `DONE`), never one the player chose (D-022). Scoring starts when nothing is in flight for the run, or when grace ends.
 - **Steps:** step 0 is the intro (nothing revealed). Mini-podium size = min(3, eligible); podium size = min(5, eligible). Eligible = not kicked and has ≥ 1 non-hidden scored entry. Step *k* reveals rank *size − k + 1* (5, 4, 3, 2, 1).
-- **Final ranking** is frozen at `podium/start` (total desc → best single-round score desc → earliest `selectedAt` of the player's last entry). Hiding an entry that is not yet revealed recomputes the unrevealed steps. Revealed steps never change.
+- **Final ranking** is frozen at `podium/start` (total desc → best single-round score desc → earliest `selectedAt` of the player's last entry). Hiding an entry that is not yet revealed recomputes the unrevealed steps. Revealed steps never change rank; an entry hidden after its reveal is removed from the stage and its slot stays empty (D-022).
 - **Final podium entry (D-015):** the player's highest-scoring non-hidden entry (tie → earlier round), shown beside that round's target.
 - **Phones** get their own `final` rank once rank #1 is revealed (step = size) and in `FINISHED`.
 
@@ -296,7 +296,7 @@ Errors: `PROMPT_INVALID` (1–1000 chars), `PROMPT_BLOCKED`, `GENERATION_FAILED`
     "scored": true, "seed": null, "previewId": "9e1f…" }
   ```
   `seed: null` takes the preview's seed.
-- With an upload (`multipart/form-data`): part `round` (JSON, same fields without `previewId`) and part `target` (JPEG, PNG or WebP, ≤ 10 MB). The target is center-cropped to a square and stored as 1024² JPEG q85 plus a thumbnail. `seed: null` → random.
+- With an upload (`multipart/form-data`): part `round` (JSON, same fields without `previewId`) and part `target` (JPEG or PNG, ≤ 10 MB). The target is center-cropped to a square and stored as 1024² JPEG q85 plus a thumbnail. `seed: null` → random.
 - Limits: `name` 1–60, `hiddenPrompt` 1–1000, `durationSec` 60–1800 (default 480; practice 180), `attemptsPerPlayer` 1–10 (default `ATTEMPTS_PER_ROUND`), `seed` 0–2147483647.
 - Errors: `VALIDATION_FAILED`, `PREVIEW_NOT_FOUND`, `UPLOAD_INVALID`.
 

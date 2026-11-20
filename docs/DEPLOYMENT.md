@@ -52,6 +52,7 @@ Latency to players matters little here: players poll small JSON every 1.5 s and 
 4. Add a **volume** mounted at `/data` (1 GB). Set `DATA_DIR=/data`.
 5. Variables: every API variable from SPEC §11.1 (copy from your local `.env`; never commit it). Set `PUBLIC_UI_URL` to the Cloudflare Pages URL and `CORS_ALLOWED_ORIGINS` to both UI origins.
 6. Generate a public domain (`*.up.railway.app`). Put it into the UI's `API_BASE_URL` (GitHub Actions variable in `prompt-battle-ui`).
+   - Then check the client IP (D-022 #4): confirm in Railway's docs or HTTP logs that `X-Forwarded-For` carries the real client address. If it doesn't, switch `FORWARD_HEADERS_STRATEGY` to `native`.
 7. After the event: export the CSVs, run the event reset, then delete the service and its volume.
 
 ## Cloudflare Pages setup (UI, primary)

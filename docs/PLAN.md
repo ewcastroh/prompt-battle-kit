@@ -84,7 +84,7 @@ Runtime `config.json`, one build for every target:
 - `GameEngineTransitionsTest`: every row of API.md §4, plus a 409 `INVALID_TRANSITION` for each invalid pair; timer auto-close; extend; practice → `LOBBY`.
 - `CityIsolationTest`: every command on `mde` leaves the `bog` snapshot unchanged.
 - `AttemptAccountingTest`: a success consumes; failure and block don't; 3 blocks → flagged; one in flight; `NO_ATTEMPTS_LEFT`.
-- `CloseAndGraceTest`: auto-entry = last `DONE`; a result after grace is discarded; scoring starts when the run is idle (D-018).
+- `CloseAndGraceTest`: auto-entry = last `DONE`, and a grace result replaces an automatic entry but not a chosen one (D-022); a result after grace is discarded; scoring starts when the run is idle (D-018).
 - `RankingTest`: totals, tie-breaks 1 and 2, hidden and kicked excluded, podium sizes < 5, best-entry selection (D-015), frozen ranking + hide recompute.
 - `ScoreCalculatorTest`: clamp, rounding to one decimal, anchor exclusion at cos > 0.9.
 - `NicknameRulesTest`: length, charset, per-city uniqueness, case and accents; the same nickname in two cities is allowed.
@@ -277,7 +277,7 @@ Runtime `config.json`, one build for every target:
 5. Calibration is asynchronous after create/edit; scored rounds can't start until `READY`; practice needs none.
 6. The practice gallery is 6 random non-hidden entries, shown when the admin toggles it.
 7. Kick invalidates the token; rejoining under a new nickname is possible.
-8. Target upload: JPEG/PNG/WebP ≤ 10 MB, center-crop → 1024² JPEG.
+8. Target upload: JPEG/PNG ≤ 10 MB (D-022), center-crop → 1024² JPEG.
 9. The admin token is kept in localStorage per city, with a log-out control.
 10. Countdown = `endsAt` + server `Date` offset.
 11. `/api/me` carries attempt status and queue position (one poll URL).

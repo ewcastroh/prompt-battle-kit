@@ -128,7 +128,7 @@ Status values: **Accepted** (in force), **Superseded** (replaced by a later entr
 - **Replaces:** the open choice in SPEC §7.1 and §11.2.
 
 ## D-018 · Close, grace and scoring timing — Accepted (2026-11-20)
-- On close, entry changes stop at once. Generations that finish within `ROUND_GRACE_SECONDS` count, and become the auto-entry only if the player has none.
+- On close, entry changes stop at once. Generations that finish within `ROUND_GRACE_SECONDS` count. Which one becomes the entry: amended by D-022 #2.
 - Scoring starts when the run has nothing queued or generating, or when grace ends, whichever comes first.
 - The "close → results ≤ 15 s" target is measured from that moment.
 - **Why:** SPEC §3.3 allows a 20 s grace while §4.3/§13 ask for 15 s from close. Both can't hold at once.
@@ -162,7 +162,7 @@ Status values: **Accepted** (in force), **Superseded** (replaced by a later entr
    - The floor is computed per city run with that run's embedding provider.
 6. The practice gallery is 6 random non-hidden entries, shown when the admin toggles it on.
 7. Kick invalidates the token; nothing prevents rejoining under a new nickname.
-8. Admin target upload: JPEG, PNG or WebP up to 10 MB, center-cropped to a 1024² JPEG.
+8. Admin target upload: JPEG or PNG up to 10 MB, center-cropped to a 1024² JPEG (WebP dropped by D-022 #1).
 9. The admin token is kept in `localStorage` per city, with a log-out control.
 10. Countdowns use the absolute `endsAt` plus the server `Date` header offset.
 11. `GET /api/me` includes attempt status and queue position, so a phone polls one URL.
@@ -174,6 +174,21 @@ Status values: **Accepted** (in force), **Superseded** (replaced by a later entr
 - **Icons:** Lucide (ISC). Only the icons in use are copied as inline SVG into the `icon` component, with the license in `THIRD_PARTY_NOTICES.md`. No npm dependency.
 - **Colors:** the DESIGN.md §3 values are kept unchanged. All 62 text and control pairs pass WCAG 2.2 AA in both themes (lowest: light success on bg 4.84:1, dark border-strong on raised 3.49:1).
 - **Still open:** confetti (DESIGN.md §11.4), decided in U3.
+
+## D-022 · Phase A1 follow-ups — Accepted (2026-11-20)
+1. **Target uploads are JPEG or PNG only.** WebP is dropped: the JDK cannot read it and supporting it would need a dependency. A WebP upload gets `UPLOAD_INVALID`.
+2. **Grace results and automatic entries.** A generation that finishes within the grace period replaces an *automatic* entry, because it is now the player's last successful attempt (SPEC §3.3). It never replaces an entry the player chose. Its `selectedAt` is the time it finished.
+   - **Why:** a player who didn't choose gets their latest work, which is the most likely intent and what SPEC §3.3 says. An explicit choice is always respected.
+3. **Smaller A1 choices:**
+   - A kicked player's nickname stays taken in that city.
+   - An entry hidden after it was revealed is removed from the stage and its slot stays empty. Revealed steps never re-rank. Safety comes before "revealed steps never change".
+   - If every calibration anchor is excluded, the floor is 0.
+   - A preflight from an origin outside `CORS_ALLOWED_ORIGINS` gets 403 with an empty body (no error code fits). Other requests from that origin are served without CORS headers, so the browser blocks them.
+   - `queuePosition` is `null` once a generation has started.
+4. **Client IP behind the proxy:** `FORWARD_HEADERS_STRATEGY` stays `framework`, which takes the client IP from `X-Forwarded-For`.
+   - **Why:** only the per-IP join limit uses the client IP. Players at a venue share one NAT address anyway, and a spoofed header only gets around that limit. Admins can kick unwanted players. `native` depends on Railway's proxy addresses, which we haven't verified; if they don't match, every player would share one IP.
+   - **Check at deploy:** confirm `X-Forwarded-For` holds the real client address on Railway (DEPLOYMENT.md).
+5. **Local configuration comes from `.env`.** The API reads `./.env` itself (UTF-8, the `docker compose` `env_file` format), so nothing is exported. Real environment variables override it, and tests never read it.
 
 ---
 
