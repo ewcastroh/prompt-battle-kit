@@ -190,6 +190,14 @@ Status values: **Accepted** (in force), **Superseded** (replaced by a later entr
    - **Check at deploy:** confirm `X-Forwarded-For` holds the real client address on Railway (DEPLOYMENT.md).
 5. **Local configuration comes from `.env`.** The API reads `./.env` itself (UTF-8, the `docker compose` `env_file` format), so nothing is exported. Real environment variables override it, and tests never read it.
 
+## D-024 · Phase U2 player choices — Accepted (2026-11-20)
+1. **The prompt stays after Generate, and an identical prompt is blocked.** The text stays in the editor so players can tweak it. Generating a prompt identical (after trimming and collapsing whitespace) to one the player already generated in the round is blocked, with a visible reason.
+   - **Why:** the round's fixed seed gives the same image for the same prompt, so a repeat would only spend an attempt. Blocked and failed prompts can be retried, because they didn't use an attempt.
+2. **Attempt zoom.** Attempt thumbnails open full size in the same dialog as the target, with the full prompt. Cards clamp the prompt to three lines.
+3. **Playwright browsers.** The smoke test runs on Chromium in es/en × light/dark, plus one WebKit run (es/light), because iOS Safari is a listed U2 risk. CI installs both browsers.
+4. **Screenshots are not committed.** `npm run e2e:screens` regenerates them into the git-ignored `e2e/screenshots/`.
+5. **AXE checks.** `@axe-core/playwright` 4.14.0 is a dev dependency, in addition to PLAN §3's list. The e2e suite runs AXE on every player screen, and any violation fails CI.
+
 ---
 
 ## Open
