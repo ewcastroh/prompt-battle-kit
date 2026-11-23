@@ -125,6 +125,7 @@ Type scale (proposal):
 - Use container queries and intrinsic layouts (`repeat(auto-fit, minmax(min(100%, 10rem), 1fr))` for galleries) instead of pixel breakpoints. If a media query is needed, use `em` units.
 - Use logical properties (`margin-inline`, `padding-block`).
 - Stage layouts target **1920×1080** and **1280×720** and must be readable from the back of a room: no body text smaller than `--text-xl` on the stage.
+  - **Exception (D-026):** each stage scene fits one screen. When long user text (prompts, commentary, round names, nicknames, hidden prompts) would overflow, only that text shrinks, step by step, down to `1.5rem`. Demo-length content stays at `--text-xl`.
 - CSS architecture: `@layer reset, tokens, base, layout, components, utilities;`. Global tokens in one `tokens.css`; component styles in Angular component stylesheets (emulated encapsulation), consuming tokens only.
 
 ## 7. Components
@@ -141,7 +142,7 @@ Type scale (proposal):
 | **Countdown** | Mono, tabular numbers. Last 60 s use the warning token plus a text cue. No flashing. |
 | **Toast / inline message** | Icon + text, semantic color, dismissible, never the only place a critical error appears. |
 | **Stage podium step** | Rank (mono, huge), nickname, entry image beside the target, score counting up over ~1.5 s, commentary in the stage's language. |
-| **Confetti (#1 only)** | Bundled library or CSS. Only inside `prefers-reduced-motion: no-preference`; with reduced motion, show a static celebratory state. |
+| **Confetti (#1 only)** | canvas-confetti (bundled, D-026). Only inside `prefers-reduced-motion: no-preference`; with reduced motion, show a static celebratory state. |
 | **Admin tables** | Real `<table>` with header cells; thumbnails lazy-loaded; actions as buttons with text labels. |
 
 Icons: inline SVG from one locally bundled icon set (proposal: Lucide, ISC license), `aria-hidden="true"` when next to text; icon-only buttons get a translated accessible name.
@@ -181,4 +182,4 @@ From `motion`:
 1. Exact color values in §3: **kept** after contrast verification in U1 (D-021). Still check on a real phone and projector at the dry run.
 2. Fonts: Atkinson Hyperlegible Next + JetBrains Mono: **confirmed** (D-021).
 3. Icon set: Lucide, copied SVGs: **confirmed** (D-021).
-4. Confetti: small bundled library vs CSS-only. Open, decided in U3.
+4. Confetti: **canvas-confetti 1.9.4, bundled** (D-026). It runs only inside `prefers-reduced-motion: no-preference`; with reduced motion, #1 gets a static celebration.

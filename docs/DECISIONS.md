@@ -220,6 +220,45 @@ Status values: **Accepted** (in force), **Superseded** (replaced by a later entr
 4. **Screenshots are not committed.** `npm run e2e:screens` regenerates them into the git-ignored `e2e/screenshots/`.
 5. **AXE checks.** `@axe-core/playwright` 4.14.0 is a dev dependency, in addition to PLAN §3's list. The e2e suite runs AXE on every player screen, and any violation fails CI.
 
+## D-025 · Phase A3: commentary, moderation and extras — Accepted (2026-11-20)
+1. **Owner choices.**
+   - **LLM moderation fails open.** If the moderation call fails or times out, the prompt is allowed: the blocklist already ran and the image provider's safety checker still applies. A refusal to check the prompt counts as blocked. If the translation fails, the original prompt is generated.
+     - **Why:** an Anthropic outage must not block every player while `PROMPT_LLM_MODERATION` is on.
+   - **Docker user.** The JVM runs as `app` (uid 10001). The entrypoint starts as root only to give the volume to `app` (Railway mounts volumes owned by root), then drops privileges with `setpriv`. `RAILWAY_RUN_UID` is not used.
+   - **Commentary images.** The 384 px thumbnails are sent (about 200 image tokens each instead of about 1,400 at 1024 px).
+   - **Comments go through the blocklist.** A hit falls back to the canned comment for the score band.
+2. **Smaller A3 choices.**
+   - **Dependencies:** `spring-ai-anthropic` and `spring-ai-client-chat` 2.1.0 (Spring AI BOM), the two modules of the planned `spring-ai-starter-model-anthropic`, without its auto-configuration. `ProvidersConfig` wires them only outside `fake` and only with `ANTHROPIC_API_KEY`. They bring `anthropic-java-core` 3.8.0 (and OkHttp, the Kotlin stdlib and Jackson 2) transitively.
+   - **One Anthropic client** (`COMMENTARY_MODEL`) for commentary, moderation and translation: no retries, 8 s per call, effort `low`, adaptive thinking left on (Claude Sonnet 5.5 rejects disabling it), `max_tokens` 2048, no sampling parameters. Native structured output: `{es,en}`, `{allowed}`, `{en}`, with no other properties.
+   - **Auth header:** the SDK sends the API key as `Authorization: Bearer` (API version `2026-10-21`), as PLAN A3's test says.
+   - **Refusals:** `stop_reason: refusal`, or an empty reply (Spring AI 2.1 returns one for a refusal without content), raises `ModelRefusedException`. Commentary then falls back, moderation blocks, and translation keeps the original. Server-side refusal fallbacks to another model are not used: SPEC §4.4's fallback is the canned comment, and Spring AI's request has no such parameter.
+   - **Comment checks:** a blank comment, or one longer than 30 words, is replaced by the canned one. SPEC asks for ≤ 20 words; small overruns are tolerated.
+   - **A revealed comment never changes.** A comment that arrives after its step was revealed (with a canned one) is dropped. `COMMENTARY_FALLBACK {count}` is raised only when a live model fails.
+   - **Blocklist matching:**
+     - Whole words. Each run of one letter in a term also matches a longer run, so "puuuta" matches "puta" but "as" never matches "ass".
+     - The words of a phrase may be joined by spaces, `_ . -` or nothing.
+     - Left out: terms that collide with everyday words once accents are stripped (coño → cono, año → ano), and everyday Colombian words (zorra, perra, bomba, perico, coger, chimba, polla, concha).
+     - "narco" and "pablo escobar" are included (Medellín).
+     - 179 terms. The owner reviews `moderation/blocklist.txt`.
+   - **Moderation and translation run on a worker** between the attempt and the generation queue (the attempt stays `QUEUED`). Each adds one call (up to 8 s, usually 1–2 s) to that attempt's wait. A flag set without `ANTHROPIC_API_KEY` is logged and ignored. The fake profile has stand-ins (`[llm-block]`, `[llm-fail]`, `"EN: "` prefix). The translation keeps text in square brackets and is capped at 1,000 characters. An event reset drops the attempts waiting there.
+   - **Results CSV:** as in API.md 1.3 (row order, cells, RFC 4180, formula guard).
+   - **Docker image:** `eclipse-temurin:25.0.5.1_2-jdk-noble` to build and `-jre-noble` to run, the latest Temurin 25 tags on 2026-11-20. `JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError`. The image build skips tests, because CI runs them before Railway deploys.
+
+## D-026 · Phase U3: stage and admin choices — Accepted (2026-11-20)
+1. **Owner choices.**
+   - **Confetti: canvas-confetti 1.9.4** (ISC, bundled, about 4 KB gzipped in its own lazy chunk). Closes DESIGN.md §11.4. It fires once when #1's score lands, only with `prefers-reduced-motion: no-preference` (plus the library's own reduced-motion guard). With reduced motion, #1 keeps a static celebration (trophy and accent frame). The package ships no types, so a local declaration (`src/types/canvas-confetti.d.ts`) stands in for `@types/canvas-confetti`.
+   - **The final podium counts up the event total.** The best entry's round name and round score show smaller under it. A mini-podium counts up the round score.
+   - **Admin layout: one page with a sticky bar of section links.** Live controls come first. A side column for the shared panels (providers, alerts, event) appears only from 100em (1600 px) wide, so tables keep their width on a 1366 px laptop.
+   - **Stage auto-fit (exception to DESIGN.md §6).** User text on the stage (prompts, commentary, round names, nicknames, hidden prompts) starts at `--text-xl`. It shrinks step by step only when the scene would not fit one screen, down to a 1.5rem (24 px) floor. Titles and the countdown shrink too, but never below `--text-xl` and `--text-stage-title`. Demo-length content never shrinks.
+     - **Why:** at 1280×720, worst-case content (a 300-character prompt, 20-word commentary, a 60-character round name, long hidden prompts) can't fit one screen at 36 px. A projector can't scroll.
+2. **Smaller U3 choices.**
+   - **Stage:** one scene per phase, sized to one screen (100dvh, never scrolled). Images sit in size containers and take the room the text leaves. An editor-style status line shows the city and the phase. Each reveal step shows only the current entry. The finished screen lists the podium and the hidden prompts. The lobby shows the 12 newest nicknames, and the counter carries the total.
+   - **Admin:** run actions go one at a time, so a double-tapped Next reveals one step. Closing a round, restarting the reveal, kicking, deleting a round, forcing a provider and the probe each ask for confirmation (native `<dialog>`, safe action focused first). The event reset needs `RESET` typed exactly, and nothing is sent before it matches.
+   - **Polling:** the stage polls every 1.5 s and the admin state every 2 s, both with ETag (API.md §3). Rounds, providers and alerts poll every 5 s, and players and entries reload when the admin state changes. The stage never pauses.
+   - **Fake backend:** `?scene=<name>&data=demo|worst` on `/stage/<city>` or `/admin/<city>` plays the fake event up to any stage phase. A fake-clock skew and a hold switch make the transient phases reachable for tests. Each page has its own fake event, so a stage tab and an admin tab don't share one.
+   - **Playwright:** desktop Chromium projects (es/light, en/dark) for the stage at 1920×1080 and 1280×720 and for the admin on a laptop. The admin also runs on the phone projects. Screenshots stay uncommitted (D-024 #4).
+   - **Icons:** 16 more Lucide 1.0.0 icons, copied like the others (D-021).
+
 ---
 
 ## Open

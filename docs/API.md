@@ -323,7 +323,7 @@ Errors: `PROMPT_INVALID` (1–1000 chars), `PROMPT_BLOCKED`, `GENERATION_FAILED`
 | `POST /api/admin/podium/reset` | — | `INVALID_TRANSITION` |
 | `POST /api/admin/practice/gallery` *(phase 0)* | `{ "show": true }` | `INVALID_TRANSITION` (not `LOBBY`, or no closed practice run) |
 
-`podium/start` returns while in `FINAL_SCORING`. Comments are generated with an 8 s timeout per call (canned fallback), so `PODIUM_REVEAL` follows within ~10 s. `next` never waits on an AI call.
+`podium/start` returns while in `FINAL_SCORING`. Comments are generated with an 8 s timeout per call (canned fallback), so `PODIUM_REVEAL` follows within ~10 s. `next` never waits on an AI call: a step whose comment isn't ready (an entry hidden mid-podium moved a new player in) is revealed with the canned comment of its score band, and a comment never changes after its step is revealed. `COMMENTARY_FALLBACK {count}` is raised for the city when the live model failed for `count` comments (never when no model is configured).
 
 ### Players (own city)
 
@@ -356,7 +356,10 @@ Errors: `PROMPT_INVALID` (1–1000 chars), `PROMPT_BLOCKED`, `GENERATION_FAILED`
 city,rank,nickname,claimCode,total,<round name 1>,<round name 2>,kicked
 mde,1,Pixel_Paisa,K7QX,171.3,88.0,83.3,false
 ```
-One column per scored round played in the city. Prompts are not included.
+One column per scored round played in the city (run `SCORED`), in round order. Prompts are not included.
+- Rows: ranked players in final-ranking order (`rank` 1…n), then the other non-kicked players (no entry counted), then kicked players, both in join order with an empty `rank`. `total` is the event total (kicked players' totals are shown but not ranked).
+- A round cell is the score that counts toward the total, `0.0` for a hidden entry, empty without an entry. Numbers have one decimal with a dot.
+- RFC 4180: CRLF line endings, fields with `,` `"` or line breaks quoted. A text cell starting with `=`, `+`, `-` or `@` gets a leading `'` (no spreadsheet formulas).
 
 ### Shared controls (either admin; every change raises an alert for all admins)
 
@@ -415,3 +418,4 @@ One column per scored round played in the city. Prompts are not included.
   - `prompt` in reveal entries (D-016).
 - 1.1 (2026-11-20): alert code `EMBEDDING_QUOTA_LOW` (Gemini free-tier daily quota, D-013).
 - 1.2 (2026-11-20, phase A2, D-023): clarified the providers object (unconfigured providers, `lastError`, `healthy`, `determinism`), that a forced provider's circuit closes, and the probe rows and `errorKind` values (`QUOTA_EXHAUSTED`, `NOT_CONFIGURED`). No field or endpoint changed.
+- 1.3 (2026-11-20, phase A3, D-025): clarified the `results.csv` rows and cells, that a revealed step's comment never changes, and when `COMMENTARY_FALLBACK` is raised. No field or endpoint changed.

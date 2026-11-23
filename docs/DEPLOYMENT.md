@@ -42,18 +42,44 @@ Latency to players matters little here: players poll small JSON every 1.5 s and 
 
 ## Railway setup (API)
 
-1. Sign up, choose the **Hobby** plan, set a usage limit.
-2. New project → **Deploy from GitHub repo** → `ewcastroh/prompt-battle-api`. Build from the repo's `Dockerfile`.
-3. Settings:
-   - Region: US East.
+The repo's `Dockerfile` builds and runs the API (D-025): Temurin 25, the JVM as an unprivileged user, `DATA_DIR=/data`. Railway finds it at the repo root.
+
+1. **Account.** Sign up and choose the **Hobby** plan. Set a usage limit in the workspace's usage settings (for example US$15) so a mistake can't run up a bill.
+2. **Service.** New Project → **Deploy from GitHub repo** → `ewcastroh/prompt-battle-api`. Railway starts a first build at once. That deploy crashes because the admin tokens aren't set yet. This is expected and harmless.
+3. **Settings** (service → Settings):
+   - Source: branch `main`. Turn on **Wait for CI**: deploys wait until every GitHub Actions run on the commit has finished, and a failed run skips the deploy. The flag only shows once the workflow runs on `push` to `main` (ours does) and Railway's updated GitHub permissions are accepted (a banner links to them).
+   - Region: US East (Virginia).
    - Replicas: **1**. Serverless: **off**.
-   - Health check path: `/actuator/health`.
-   - Branch: `main`. Turn on **Wait for CI**.
-4. Add a **volume** mounted at `/data` (1 GB). Set `DATA_DIR=/data`.
-5. Variables: every API variable from SPEC §11.1 (copy from your local `.env`; never commit it). Set `PUBLIC_UI_URL` to the Cloudflare Pages URL and `CORS_ALLOWED_ORIGINS` to both UI origins.
-6. Generate a public domain (`*.up.railway.app`). Put it into the UI's `API_BASE_URL` (GitHub Actions variable in `prompt-battle-ui`).
-   - Then check the client IP (D-022 #4): confirm in Railway's docs or HTTP logs that `X-Forwarded-For` carries the real client address. If it doesn't, switch `FORWARD_HEADERS_STRATEGY` to `native`.
-7. After the event: export the CSVs, run the event reset, then delete the service and its volume.
+   - Healthcheck path: `/actuator/health`. Railway calls it only during a deploy, from `healthcheck.railway.app`, and gives up after 300 s.
+4. **Volume.** Add a volume (⌘K → "volume", or right-click the canvas), attach it to the service and mount it at `/data` (1 GB). Railway mounts volumes owned by root. The image's entrypoint hands it to the app user at each start, so **don't** set `RAILWAY_RUN_UID`.
+5. **Variables** (service → Variables → Raw Editor). Every value from SPEC §11.1. Copy the keys from your local `.env`, never commit them, and use admin tokens different from your local ones:
+   ```
+   PUBLIC_UI_URL=https://prompt-battle-ui.pages.dev
+   CORS_ALLOWED_ORIGINS=https://prompt-battle-ui.pages.dev,https://ewcastroh.github.io
+   CITIES=mde:Medellín,bog:Bogotá
+   ADMIN_TOKEN_MDE=<32 random characters>
+   ADMIN_TOKEN_BOG=<32 other random characters>
+   DATA_DIR=/data
+   FAL_KEY=<key>
+   BFL_API_KEY=<key>
+   GEMINI_API_KEY=<key>
+   ANTHROPIC_API_KEY=<key>
+   ```
+   - A token: `openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | cut -c1-32`.
+   - An origin has no path: the GitHub Pages origin is `https://ewcastroh.github.io`, not `…/prompt-battle-ui/`.
+   - Don't set `SPRING_PROFILES_ACTIVE` (the `fake` profile ignores every key) or `PORT` (Railway injects it).
+   - Optional: `COHERE_API_KEY`. The other variables have the SPEC defaults (`IMAGE_PROVIDER_CHAIN=fal,bfl`, `COMMENTARY_MODEL=claude-sonnet-5-5`, `PROMPT_LLM_MODERATION=false`, …).
+   - Saving the variables redeploys.
+6. **Domain.** Settings → Networking → Public Networking → **Generate Domain** (`*.up.railway.app`). Put it into the UI's `API_BASE_URL` (GitHub Actions variable in `prompt-battle-ui`).
+7. **First-deploy checks** (`API=https://<domain>`, `T=<ADMIN_TOKEN_MDE>`):
+   - Deploy logs show `Started PromptBattleApiApplication` and no warning that a provider chain has no adapter.
+   - `curl -s $API/actuator/health` → `{"status":"UP",…}`. `curl -s $API/api/cities` → both cities.
+   - `curl -s -H "X-Admin-Token: $T" $API/api/admin/me` → `mde`. Repeat with the Bogotá token → `bog`.
+   - `curl -s -H "X-Admin-Token: $T" $API/api/admin/providers` → `configured: true` for fal, bfl, gemini and `commentary`.
+   - `curl -s -X POST -H "X-Admin-Token: $T" $API/api/admin/providers/probe` → every row `ok: true`. This spends a few cents: two images and one comment.
+   - Persistence: join a test player, restart the service from the dashboard, and check that `GET /api/admin/players` still lists it. Then run the event reset.
+   - Client IP (D-022 #4): open one deployment's HTTP logs and confirm the source IP is your own public IP. If it isn't, set `FORWARD_HEADERS_STRATEGY=native`.
+8. **After the event:** export both CSVs, run the event reset, then delete the service and its volume.
 
 ## Cloudflare Pages setup (UI, primary)
 
