@@ -3,7 +3,9 @@
 Prices, limits and dates verified on **2026-11-19** and **2026-11-20**. Confirm them when you create each account: they change often.
 Replaces `PROVEEDORES.md` (Spanish). Decisions: `docs/DECISIONS.md` D-009, D-011 (funded providers), D-012 (overflow split), D-013 (Gemini free tier). API details per provider: `docs/PLAN.md` §5.
 
-**What is funded and built (D-011):** fal.ai (US$10 of credit → 10 concurrent) and Black Forest Labs for images, Gemini free tier for embeddings, Anthropic for commentary. Runware, OpenAI, Gemini image and Pollinations are documented below for reference but **not built**.
+**Event setup (D-027, 2026-11-23): images on Black Forest Labs only** (`IMAGE_PROVIDER_CHAIN=bfl`, `IMAGE_LOAD_SPLIT=bfl`, no `FAL_KEY`). The fal.ai adapter stays built but is not used. Load test on `fake` with BFL's 24 slots: p95 ≤ 12.5 s even with all 100 players at once and 3 s per image.
+
+**What was funded and built (D-011):** fal.ai (US$10 of credit → 10 concurrent) and Black Forest Labs for images, Gemini free tier for embeddings, Anthropic for commentary. Runware, OpenAI, Gemini image and Pollinations are documented below for reference but **not built**.
 
 ## First: models that no longer exist or die before the event
 

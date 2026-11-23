@@ -4,6 +4,8 @@
 
 # Secrets
 .env
+# Production tokens and keys (I1): never committed
+secrets/
 .env.local
 .claude/settings.local.json
 

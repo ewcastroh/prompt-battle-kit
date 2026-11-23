@@ -60,23 +60,26 @@ The repo's `Dockerfile` builds and runs the API (D-025): Temurin 25, the JVM as 
    ADMIN_TOKEN_MDE=<32 random characters>
    ADMIN_TOKEN_BOG=<32 other random characters>
    DATA_DIR=/data
-   FAL_KEY=<key>
+   IMAGE_PROVIDER_CHAIN=bfl
+   IMAGE_LOAD_SPLIT=bfl
    BFL_API_KEY=<key>
    GEMINI_API_KEY=<key>
    ANTHROPIC_API_KEY=<key>
    ```
    - A token: `openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | cut -c1-32`.
+   - Keep the production values in the parent's git-ignored `secrets/` folder (mode 700, files 600): `railway.env` (pasted into the Raw Editor), `prod-tokens.env` (`PB_ADMIN_TOKEN_MDE`/`_BOG` for the production checks) and `cloudflare.env` (uploaded with `gh secret set -f`). Never leave a value empty: an empty number crashes the API at startup.
    - An origin has no path: the GitHub Pages origin is `https://ewcastroh.github.io`, not `…/prompt-battle-ui/`.
    - Don't set `SPRING_PROFILES_ACTIVE` (the `fake` profile ignores every key) or `PORT` (Railway injects it).
-   - Optional: `COHERE_API_KEY`. The other variables have the SPEC defaults (`IMAGE_PROVIDER_CHAIN=fal,bfl`, `COMMENTARY_MODEL=claude-sonnet-5-5`, `PROMPT_LLM_MODERATION=false`, …).
+   - Images on BFL only (D-027): no `FAL_KEY`; `IMAGE_LOAD_SPLIT=bfl` (a one-provider split does nothing) avoids saving an empty value. `BFL_MAX_CONCURRENCY` keeps its default 24.
+   - Optional: `COHERE_API_KEY`. The other variables have the SPEC defaults (`COMMENTARY_MODEL=claude-sonnet-5-5`, `PROMPT_LLM_MODERATION=false`, …).
    - Saving the variables redeploys.
 6. **Domain.** Settings → Networking → Public Networking → **Generate Domain** (`*.up.railway.app`). Put it into the UI's `API_BASE_URL` (GitHub Actions variable in `prompt-battle-ui`).
 7. **First-deploy checks** (`API=https://<domain>`, `T=<ADMIN_TOKEN_MDE>`):
    - Deploy logs show `Started PromptBattleApiApplication` and no warning that a provider chain has no adapter.
    - `curl -s $API/actuator/health` → `{"status":"UP",…}`. `curl -s $API/api/cities` → both cities.
    - `curl -s -H "X-Admin-Token: $T" $API/api/admin/me` → `mde`. Repeat with the Bogotá token → `bog`.
-   - `curl -s -H "X-Admin-Token: $T" $API/api/admin/providers` → `configured: true` for fal, bfl, gemini and `commentary`.
-   - `curl -s -X POST -H "X-Admin-Token: $T" $API/api/admin/providers/probe` → every row `ok: true`. This spends a few cents: two images and one comment.
+   - `curl -s -H "X-Admin-Token: $T" $API/api/admin/providers` → `chain: ["bfl"]`, `configured: true` for bfl, gemini and `commentary`.
+   - `curl -s -X POST -H "X-Admin-Token: $T" $API/api/admin/providers/probe` → every row `ok: true`. This spends a few cents: one image and one comment.
    - Persistence: join a test player, restart the service from the dashboard, and check that `GET /api/admin/players` still lists it. Then run the event reset.
    - Client IP (D-022 #4): open one deployment's HTTP logs and confirm the source IP is your own public IP. If it isn't, set `FORWARD_HEADERS_STRATEGY=native`.
 8. **After the event:** export both CSVs, run the event reset, then delete the service and its volume.

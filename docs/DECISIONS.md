@@ -259,6 +259,29 @@ Status values: **Accepted** (in force), **Superseded** (replaced by a later entr
    - **Playwright:** desktop Chromium projects (es/light, en/dark) for the stage at 1920×1080 and 1280×720 and for the admin on a laptop. The admin also runs on the phone projects. Screenshots stay uncommitted (D-024 #4).
    - **Icons:** 16 more Lucide 1.0.0 icons, copied like the others (D-021).
 
+## D-027 · Phase I2: hardening, BFL only, freeze — Accepted (2026-11-23)
+1. **Images: BFL only for the event (owner decision 2026-11-23).** fal.ai is dropped to keep one image platform.
+   - **Production variables:** `IMAGE_PROVIDER_CHAIN=bfl`, `IMAGE_LOAD_SPLIT=bfl` (a one-provider split is a no-op and avoids an empty value), `BFL_MAX_CONCURRENCY=24`, and no `FAL_KEY`.
+   - **No code change.** The code defaults stay `fal,bfl` (SPEC §11.1), and the fal adapter stays built.
+   - **Evidence (load test on `fake`, 24 slots):** p95 3.2 s / 6.6 s (realistic / everyone at once) at 1.5 s per image, and 4.6 s / 12.5 s at 3 s per image. fal alone at its 10 slots failed (p95 16.6 s at 3 s per image).
+   - **Accepted risk:** there is no image backup. If BFL is down, the event goes to Plan B (`docs/RUNBOOK.md`).
+   - **Rejected (asked 2026-11-23): Gemini images with the existing key.** It has no free tier and would need billing. D-009 measured 14–17 s per image, a fixed seed is not confirmed, it costs about 6× FLUX, and a new adapter three days before the freeze was too late.
+   - **Replaces:** D-011 (chain `fal,bfl`, US$10 of fal credit) and D-012 (load split on) for the event.
+2. **Load test (SPEC §14.3).**
+   - `scripts/loadtest.sh` wraps `scripts/LoadTest.java` (JDK only).
+   - Phones poll from the start, the first "Generate" is spread over 30 s, and there are 5–20 s between attempts. `--ramp 0` is the worst case. Stages and admins poll too, about 75 requests/s in total.
+   - The fake's limit is set to the real provider's: 10 when asked (D-011), then 24 after item 1.
+3. **Fake profile.** A second fake image provider, `fake2` (`FAKE2_MAX_CONCURRENCY`, default 24), lets a two-provider split be load-tested. It is off unless `FAKE_IMAGE_PROVIDER_CHAIN` / `FAKE_IMAGE_LOAD_SPLIT` list it.
+4. **`--real` is deferred until production is deployed (owner decision).** The mode is built and caps target + anchors + attempts at 40. The runbook runs it before doors open, followed by an event reset.
+5. **A QUEUED attempt always has a queue position.**
+   - **Problem:** an attempt that already left the FIFO used to show `QUEUED` with `queuePosition: null` for a moment.
+   - **Fix:** it is now reported as `GENERATING` (owner choice: fix the API view, no API.md change).
+   - **Known exception:** with `PROMPT_LLM_MODERATION` or `PROMPT_TRANSLATE_TO_EN` on, an attempt is `QUEUED` with a null position while its prompt is prepared. The POST reply's `queuePosition` can also be null when the job starts at once. The UI shows "waiting in queue" without a number in both cases. Both flags are off by default.
+6. **Plan B (no platform):** Slido Q&A for prompts, the MC generates a few by hand, a Padlet board shows them, a Slido poll picks the winner, and the winner claims by nickname. The owner fills in the links and the people (`docs/RUNBOOK.md` §9).
+7. **Review fixes accepted in I2** (the spec reviews and `/code-review` of each repo's full history; the full list is in `docs/reports/I2.md`):
+   - **API:** a re-selected hidden entry stays hidden; scoring retries an embedding that a prefetch failed; the dispatcher releases its slot on any error.
+   - **UI:** admin section links stay on the console; a stale admin poll never undoes "Next"; a confirmed Close or Reset waits for the action in flight; the entries round picker keeps the admin's choice; `/api/admin/me` has a timeout; the first-load error page offers "Try again"; "Start mini-podium" shows only when the API offers one.
+
 ---
 
 ## Open
