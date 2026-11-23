@@ -43,8 +43,9 @@ Then check: `GET /api/admin/providers` must show `chain: ["bfl"]`, `loadSplit: [
 Run it after the production deploy, never on event day:
 ```bash
 cd prompt-battle-api
-set -a; . ../secrets/prod-tokens.env; set +a
-scripts/loadtest.sh --real --base-url https://<service>.up.railway.app
+set -a; . ../secrets/railway.env; set +a
+PB_ADMIN_TOKEN_MDE="$ADMIN_TOKEN_MDE" PB_ADMIN_TOKEN_BOG="$ADMIN_TOKEN_BOG" \
+  scripts/loadtest.sh --real --base-url https://<service>.up.railway.app
 ```
 - **It refuses to start** unless both cities are in `LOBBY`, `ROUND_SCORED` or `MINI_PODIUM`. Against a fresh deploy that's the case.
 - **What it does:** creates the round "Load test …", plays 5 players per city, closes both cities at once and prints p50/p95/max and close → scored per city.
