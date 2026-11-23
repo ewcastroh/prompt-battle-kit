@@ -254,7 +254,9 @@ The own city's live state; run-control endpoints return the same object.
   "practiceGalleryShown": false
 }
 ```
-`podium` has the same shape as `miniPodium` (without `roundId`; `score` is the total). Before `podium/start` it is a **preview** computed live (`step: null`), so the admin can hide entries before revealing.
+`podium` has the same shape as `miniPodium`, with `roundId: null` (§1) and `score` the total. Before `podium/start` it is a **preview** computed live (`step: null`), so the admin can hide entries before revealing.
+- `preview` lists the places in reveal order (rank `size` first, rank 1 last), like the stage's `entries`.
+- `miniPodium` is non-null in `ROUND_SCORED` (live preview) and `MINI_PODIUM` when the round's run is `SCORED` and `MINI_PODIUM_ENABLED`. `podium` is non-null once the city has a `SCORED` run (its `size` may be 0).
 
 ### Shared round definitions (either admin)
 
@@ -419,3 +421,4 @@ One column per scored round played in the city (run `SCORED`), in round order. P
 - 1.1 (2026-11-20): alert code `EMBEDDING_QUOTA_LOW` (Gemini free-tier daily quota, D-013).
 - 1.2 (2026-11-20, phase A2, D-023): clarified the providers object (unconfigured providers, `lastError`, `healthy`, `determinism`), that a forced provider's circuit closes, and the probe rows and `errorKind` values (`QUOTA_EXHAUSTED`, `NOT_CONFIGURED`). No field or endpoint changed.
 - 1.3 (2026-11-20, phase A3, D-025): clarified the `results.csv` rows and cells, that a revealed step's comment never changes, and when `COMMENTARY_FALLBACK` is raised. No field or endpoint changed.
+- 1.4 (2026-11-23, phase I1): admin state `podium` carries `roundId: null`. §7 said "without `roundId`", which contradicted the §1 null rule; the API already sent the field. Also written down, as the API already behaved: `preview` is in reveal order, and when `miniPodium` and `podium` are non-null. No API change.

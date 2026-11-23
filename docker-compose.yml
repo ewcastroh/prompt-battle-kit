@@ -1,0 +1,34 @@
+# Local run of the whole event (docs/DEPLOYMENT.md "Local: Docker Compose").
+#   cp .env.example .env   # set both ADMIN_TOKEN_* (24+ characters)
+#   docker compose up --build
+#   UI  → http://localhost:4200/play/mde, /stage/mde, /admin/mde (and bog)
+#   API → http://localhost:8080/actuator/health
+# The API runs on the offline `fake` profile unless .env sets SPRING_PROFILES_ACTIVE= (empty) for real providers.
+# ONE API instance only: the event lives in memory with a snapshot in ./data (SPEC §7.4).
+name: prompt-battle
+
+services:
+  api:
+    build: ./prompt-battle-api
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      # `-` (not `:-`): an empty value in .env means real providers, an unset one means fake.
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE-fake}
+      DATA_DIR: /data
+    volumes:
+      - ./data:/data
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  ui:
+    build: ./prompt-battle-ui
+    environment:
+      API_BASE_URL: http://localhost:8080
+    ports:
+      - "4200:80"
+    depends_on:
+      - api
+    restart: unless-stopped

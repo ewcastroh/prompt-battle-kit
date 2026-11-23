@@ -119,11 +119,12 @@ Pin every third-party action to a full commit SHA (the repos are public).
 
 ## Local: Docker Compose (parent folder)
 
-`docker-compose.yml` in the parent (written in the integration phase):
-- `api`: builds `./prompt-battle-api`, profile `fake` by default, volume `./data:/data`, env from `.env`, port 8080.
-- `ui`: builds `./prompt-battle-ui` (multi-stage: Node build → nginx with single-page app fallback), port 4200 → 80, `API_BASE_URL=http://localhost:8080`.
+`docker-compose.yml` in the parent (phase I1):
+- `api`: builds `./prompt-battle-api`, profile `fake` by default, volume `./data:/data`, env from `.env` (required: both `ADMIN_TOKEN_*`, 24+ characters), port 8080.
+- `ui`: builds `./prompt-battle-ui` (`node:24.22.3-alpine3.24` build → `nginx:1.30.7-alpine`), port 4200 → 80. At start, `docker-entrypoint.d/40-config.sh` writes `config.json` from `API_BASE_URL=http://localhost:8080`. `nginx.conf` serves `index.html` for deep links and mirrors `public/_headers` (`config.json`, `index.html` and translations `no-cache`).
 - `docker compose up --build`, then open `http://localhost:4200/play/mde`, `/stage/mde`, `/admin/mde` (and `bog`).
-- To use real providers locally: set `SPRING_PROFILES_ACTIVE=` (empty) and fill the keys in `.env`.
+- To use real providers locally: set `SPRING_PROFILES_ACTIVE=` (empty, not removed) and fill the keys in `.env`. Unset means `fake`.
+- **Full event test** (UI repo): with the stack up, `PB_ADMIN_TOKEN_MDE=… PB_ADMIN_TOKEN_BOG=… npm run e2e:compose` plays two cities through the real admin and player screens (two stages, two admins, two phones and two HTTP players per city) and saves screenshots and both results CSVs in `e2e/screenshots/compose/`. **It resets the event first.**
 
 ## Freeze rules
 - Last deploy of both repos on **2026-11-26** (freeze), plus bug-fix deploys until 2026-12-01.
