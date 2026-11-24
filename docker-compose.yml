@@ -17,6 +17,9 @@ services:
       # `-` (not `:-`): an empty value in .env means real providers, an unset one means fake.
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE-fake}
       DATA_DIR: /data
+      # LAN_HOST (optional, in .env) lets a phone on the same Wi-Fi use the stack. A value set in .env wins over these defaults.
+      PUBLIC_UI_URL: ${PUBLIC_UI_URL:-http://${LAN_HOST:-localhost}:4200}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4200,http://${LAN_HOST:-localhost}:4200}
     volumes:
       - ./data:/data
     ports:
@@ -26,7 +29,7 @@ services:
   ui:
     build: ./prompt-battle-ui
     environment:
-      API_BASE_URL: http://localhost:8080
+      API_BASE_URL: ${API_BASE_URL:-http://${LAN_HOST:-localhost}:8080}
     ports:
       - "4200:80"
     depends_on:
