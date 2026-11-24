@@ -136,6 +136,17 @@ The phone talks to the API directly (per-IP join limits stay per phone), over pl
 - **B. `ng serve` + API from Maven.** In `prompt-battle-ui`: `npm run start:lan`. It serves on `0.0.0.0`, points the UI at `http://<LAN IP>:8080` without touching `public/config.json`, and prints the phone URLs and the two variables to give the API (`CORS_ALLOWED_ORIGINS`, `PUBLIC_UI_URL`). `LAN_HOST=<ip>` overrides the detected address; add `-- --port 4300` if 4200 is busy.
 - **UI only:** `npm run start:fake:lan` (fake API inside the page; no backend, each device has its own event).
 
+For flow B the API reads its own `prompt-battle-api/.env`, not this folder's. Set `PUBLIC_UI_URL=http://<LAN IP>:4200` and `CORS_ALLOWED_ORIGINS=http://localhost:4200,http://<LAN IP>:4200` there. To check from the computer: `curl http://<LAN IP>:8080/actuator/health` (`UP`) and `curl http://<LAN IP>:4200/config.json` (your LAN IP).
+
+| What you see | Likely cause | Fix |
+|---|---|---|
+| The phone can't open the page | Different Wi-Fi, guest network or client isolation, VPN, or the macOS firewall | Same network, VPN off, allow Docker/`node` in System Settings → Network → Firewall |
+| Page loads, then a network error | The UI calls the wrong API address, or CORS doesn't list the LAN origin | `config.json` must show the LAN IP; check `CORS_ALLOWED_ORIGINS`; `docker compose up -d` |
+| UI container exits at start | `API_BASE_URL` isn't https, localhost or a private address | `docker compose logs ui` |
+| Stage QR still shows `localhost` | The API wasn't restarted after setting `LAN_HOST` (or `PUBLIC_UI_URL`) | `docker compose up -d` |
+| Worked yesterday, not today | The computer got a new IP | `ipconfig getifaddr en0`, update `LAN_HOST`, `docker compose up -d` |
+| `LAN_HOST` is ignored | `.env` also sets `API_BASE_URL`, `PUBLIC_UI_URL` or `CORS_ALLOWED_ORIGINS` (those win) | Remove them from `.env` |
+
 ## Freeze rules
 - Last deploy of both repos on **2026-11-26** (freeze), plus bug-fix deploys until 2026-12-01.
 - **No deploys on 2026-12-02.** A redeploy restarts the API (short downtime; the snapshot restores state, losing ≤ 10 s).

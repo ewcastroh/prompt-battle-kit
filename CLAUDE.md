@@ -44,3 +44,4 @@ This folder is the **parent project**: decisions, specs, design rules and Claude
 
 ## Local run (once I1 is done)
 - `docker compose up --build` → UI on http://localhost:4200, API on http://localhost:8080, `fake` profile.
+- Phone on the same Wi-Fi: `LAN_HOST=<LAN IP>` in `.env` (D-029); see `docs/DEPLOYMENT.md` → "Testing on your phone".
