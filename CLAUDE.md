@@ -18,6 +18,7 @@ This folder is the **parent project**: decisions, specs, design rules and Claude
 - The API and UI change together only through `docs/API.md`. If the contract changes, update it first.
 - Ask before adding a dependency that is not in the spec or the plan.
 - Latest **stable** versions only; never upgrade a version implicitly.
+- IMPORTANT: **one branch per change, never work on `main`** (D-028). Before editing anything in any of the three repos, check the branch with `git branch --show-current`; if it is `main`, create a branch first (`<phase-or-type>/<short-topic>`, e.g. `a4/queue-fix`, `fix/stage-overflow`, `docs/branch-per-change`). Never commit, merge, rebase or force-push on `main`. Changes reach `main` only through a pull request that the owner merges after CI passes.
 
 ## API rules (`prompt-battle-api`)
 - IMPORTANT: model IDs live only in configuration (`application.yml` + env vars). Before writing a provider adapter, read that provider's current API docs. Never use a model ID listed in `forbidden-models.txt`.
@@ -38,7 +39,7 @@ This folder is the **parent project**: decisions, specs, design rules and Claude
 ## Workflow
 - Start Claude Code in this folder; each phase then works inside one child folder (see `docs/WORKFLOW.md` and `docs/PROMPTS.md`).
 - After each change, run the relevant tests. Before saying a phase is done, run the child repo's full verification and show the output.
-- Commit at the end of each phase in the child repo, as `<phase>: <summary>` (e.g. `a1: game core`). Push only when the owner confirms.
+- Each phase is a branch in its child repo (e.g. `a1/game-core`). Commit at the end of the phase on that branch, as `<phase>: <summary>` (e.g. `a1: game core`). Push the branch and open a pull request only when the owner confirms. Never merge it: the owner does.
 - IMPORTANT: every commit is made on behalf of the owner (Eimer Castro) using the local git identity. Never add `Co-Authored-By: Claude` or any other Claude/AI attribution trailer to commits, and never add "Generated with Claude Code" to pull request descriptions.
 - When compacting, keep the list of modified files, failing tests, and open decisions.
 

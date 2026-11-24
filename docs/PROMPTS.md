@@ -3,6 +3,8 @@
 Paste each prompt as is into a **new** Claude Code session started in the **parent folder** (`/clear` between phases).
 The "Model / effort" column says how to configure the session before pasting. Calendar: `docs/WORKFLOW.md`.
 
+**Branches (D-028).** Every phase prompt below runs on its own branch in the repo it changes (for example `a4/<topic>`, or `a1/game-core` for the first phase), never on `main`. Where a prompt says "commit", it means a commit on that branch; the pull request is opened only when you confirm, and you merge it. The same applies to every later fix.
+
 | Phase | Track | Model / effort | Mode |
 |---|---|---|---|
 | 0. Plan and API contract | Parent | Opus 5.5 · `high` | Plan mode (`claude --permission-mode plan`) |

@@ -117,7 +117,16 @@ Pin every third-party action to a full commit SHA (the repos are public).
 ### Security for public repos
 - Turn on **secret scanning** and **push protection** in all three repos.
 - Secrets only in GitHub Actions secrets, Railway variables and Cloudflare. `.env` files are git-ignored everywhere.
-- Turn on branch protection for `main` in the child repos: require the CI check to pass before merging.
+- Protect `main` in **all three repos** with a GitHub ruleset, so every change arrives through a branch and a pull request (D-028):
+  1. Settings → Rules → Rulesets → **New branch ruleset**, name `protect-main`, Enforcement **Active**, target branch **Default** (`main`).
+  2. Turn on: **Restrict deletions**, **Block force pushes**, **Require linear history**.
+  3. Turn on **Require a pull request before merging** with **0 required approvals** (a solo owner cannot approve their own PR) and **Require conversation resolution before merging**. Allowed merge methods: **Squash** only (the PR title is the `<phase>: <summary>` commit).
+  4. In the child repos also turn on **Require status checks to pass** with **Require branches to be up to date**, and add the check `verify` (API: workflow `CI`; UI: workflow `ci-cd`). The check only appears in the picker after it has run once on a pull request, so open a first PR (this change) before adding it. The parent repo has no CI, so it has no required check.
+  5. Leave the **Bypass list** empty so the rules also bind the repo admin (you). Add yourself only temporarily for an emergency, and remove yourself afterwards.
+  6. Settings → General → Pull Requests: turn on **Automatically delete head branches**.
+  7. Check the rule worked: `git push origin main` from a clean clone must be rejected.
+- Railway ("Wait for CI") and the Cloudflare and GitHub Pages deploys react to `push` to `main`, which a merged PR still produces, so the ruleset does not change them. Pull-request runs never deploy.
+- Tags such as `v1.0-freeze` are created on the merge commit on `main` after the PR is merged.
 
 ## Local: Docker Compose (parent folder)
 

@@ -282,6 +282,22 @@ Status values: **Accepted** (in force), **Superseded** (replaced by a later entr
    - **API:** a re-selected hidden entry stays hidden; scoring retries an embedding that a prefetch failed; the dispatcher releases its slot on any error.
    - **UI:** admin section links stay on the console; a stale admin poll never undoes "Next"; a confirmed Close or Reset waits for the action in flight; the entries round picker keeps the admin's choice; `/api/admin/me` has a timeout; the first-load error page offers "Try again"; "Start mini-podium" shows only when the API offers one.
 
+## D-028 · One branch per change, `main` is protected — Accepted (2026-11-23)
+1. **Rule (owner decision 2026-11-23).** Every change, in all three repos (parent, API, UI), starts on a new branch. Nothing is edited, committed, merged, rebased or force-pushed on `main`.
+   - **Branch names:** `<phase-or-type>/<short-topic>`, lowercase, hyphens: `a4/queue-fix`, `fix/stage-overflow`, `docs/branch-per-change`. This pattern is Claude's default proposal; the owner can change it.
+   - **Flow:** branch → commits `<phase>: <summary>` (D-001, no AI trailers) → push the branch and open a pull request only when the owner confirms → CI green → the owner merges. Claude never merges.
+   - **Tags** (`v1.0-freeze`) go on the merge commit on `main`.
+   - **If a session starts on `main`,** Claude creates the branch before touching any file (`git branch --show-current` first).
+2. **GitHub protection** for `main` (ruleset `protect-main`, steps in `docs/DEPLOYMENT.md` § Security for public repos): pull request required, no force pushes or deletions, linear history, squash merge only, `verify` check required in the child repos, empty bypass list.
+   - **Why:** a local rule can be forgotten or skipped by a tired owner or a session; the server-side rule cannot. Railway and the Cloudflare and GitHub Pages deploys follow `push` to `main`, so a bad direct push would deploy to the event. This closes D-001's security note ("branch protection in the child repos") for all three repos.
+   - **Cost:** even an emergency fix goes through a branch and a PR (a few minutes of CI). Accepted; no deploys on 2026-12-02 anyway.
+3. **Local guard (owner decision 2026-11-23):** a `PreToolUse` hook, `.claude/hooks/guard-main.py`, registered in `.claude/settings.json`. In the parent and both child repos, while `main` (or `master`) is checked out, it blocks Edit, Write and NotebookEdit on any file git does not ignore, and `git commit`, `merge`, `rebase`, `cherry-pick`, `revert`, `reset`, `am` and `pull`. `git pull --ff-only` is allowed, to sync after you merge a PR. It also blocks any `git push` that targets `main` (explicit refspec, `--all`, `--mirror`, or a bare push while on `main`).
+   - **Limits:** it is a guardrail for Claude, not a security boundary. It does not see variables, subshells, scripts, or writes by redirection or `sed -i`, and it does not cover your own terminal. The GitHub ruleset (item 2) is the real protection.
+   - **Fails open:** if the script itself crashes, the call is not blocked, and the error shows in the transcript.
+   - **No bypass switch.** To turn it off on purpose, remove the hook in `/hooks` or edit `.claude/settings.json`, on a branch.
+4. **Where it is written:** parent `CLAUDE.md` (Rules for every repo, Workflow), `docs/WORKFLOW.md`, `docs/PROMPTS.md`, `docs/DEPLOYMENT.md`, each child `CLAUDE.md`, the hook above, and Claude's memory.
+5. **Amends:** the phase-end commit rule ("commit at the end of each phase") now means a commit on the phase's branch, not on `main`.
+
 ## D-029 · Way back to the city list, phone testing on the LAN — Accepted (2026-11-23)
 1. **Back to `/` (the city list).**
    - **Admin sign-out redirects to `/`.** Forced sign-outs (a 401) keep the sign-in form and its reason.
