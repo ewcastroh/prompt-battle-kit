@@ -79,7 +79,7 @@ How to set it:
 - Write `docs/RUNBOOK.md`.
 
 ### Thursday 26 — Freeze
-- Tag `v1.0-freeze` in both child repos. From here on, only bug fixes, each with its test.
+- Tag `v1.0-freeze` in both child repos, on the merge commit on `main`. From here on, only bug fixes, each with its test, each on its own branch and pull request.
 - Generate and save the target images (see "How to choose the targets").
 
 ### Friday 27 — Dry run with 8 to 10 colleagues
@@ -116,7 +116,8 @@ Follow `docs/RUNBOOK.md` (written in I2). Summary per city:
 - **Independent review.** At the end of each phase, the `spec-reviewer` subagent reviews the diff in a clean context. Ask it to report only what affects behavior or requirements, to avoid over-engineering.
 - **Verification with evidence.** Require Claude to show the output of `./mvnw verify`, the UI tests and build, the load test or screenshots. Don't accept "done" without evidence.
 - **Correct early.** If it drifts, `Esc` stops it without losing context. `Esc` twice (or `/rewind`) goes back to an earlier point. If you correct the same thing twice, `/clear` and write a more precise prompt.
-- **Commits per phase, in the right repo.** Claude Code checkpoints don't replace git. The parent repo never receives child code.
+- **One branch per change, in the right repo.** Claude Code checkpoints don't replace git. The parent repo never receives child code. Nothing is edited or committed on `main` (D-028): each phase and each fix starts on its own branch (`<phase-or-type>/<short-topic>`), is committed there as `<phase>: <summary>`, and reaches `main` through a pull request. Claude pushes the branch and opens the PR only when you confirm; you merge it once CI is green. A session that finds itself on `main` creates the branch before touching a file.
+- **A hook guards `main`.** `.claude/hooks/guard-main.py` stops Claude from editing files, committing or pushing on `main` in any of the three repos and tells it to create a branch (D-028). If a session is blocked unexpectedly, run `git branch --show-current` in the repo.
 - **Secrets out of context.** `.claude/settings.json` denies Claude reading any `.env` file.
 
 ## What to cut if you're behind (in this order)
