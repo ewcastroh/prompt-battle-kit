@@ -132,10 +132,29 @@ Pin every third-party action to a full commit SHA (the repos are public).
 
 `docker-compose.yml` in the parent (phase I1):
 - `api`: builds `./prompt-battle-api`, profile `fake` by default, volume `./data:/data`, env from `.env` (required: both `ADMIN_TOKEN_*`, 24+ characters), port 8080.
-- `ui`: builds `./prompt-battle-ui` (`node:24.22.3-alpine3.24` build → `nginx:1.30.7-alpine`), port 4200 → 80. At start, `docker-entrypoint.d/40-config.sh` writes `config.json` from `API_BASE_URL=http://localhost:8080`. `nginx.conf` serves `index.html` for deep links and mirrors `public/_headers` (`config.json`, `index.html` and translations `no-cache`).
+- `ui`: builds `./prompt-battle-ui` (`node:24.22.3-alpine3.24` build → `nginx:1.30.7-alpine`), port 4200 → 80. At start, `docker-entrypoint.d/40-config.sh` writes `config.json` from `API_BASE_URL` (default `http://localhost:8080`; http is accepted for localhost, private IPv4 ranges and `*.local`, anything else needs https). `nginx.conf` serves `index.html` for deep links and mirrors `public/_headers` (`config.json`, `index.html` and translations `no-cache`).
 - `docker compose up --build`, then open `http://localhost:4200/play/mde`, `/stage/mde`, `/admin/mde` (and `bog`).
 - To use real providers locally: set `SPRING_PROFILES_ACTIVE=` (empty, not removed) and fill the keys in `.env`. Unset means `fake`.
 - **Full event test** (UI repo): with the stack up, `PB_ADMIN_TOKEN_MDE=… PB_ADMIN_TOKEN_BOG=… npm run e2e:compose` plays two cities through the real admin and player screens (two stages, two admins, two phones and two HTTP players per city) and saves screenshots and both results CSVs in `e2e/screenshots/compose/`. **It resets the event first.**
+
+### Testing on your phone (same Wi-Fi, no deploy)
+
+The phone talks to the API directly (per-IP join limits stay per phone), over plain http on a LAN IP. Both flows need the computer and phone on the same Wi-Fi, and the first time macOS asks to allow incoming connections (for Docker or `node`): choose Allow. Guest or "client isolation" Wi-Fi blocks it.
+
+- **A. Compose.** Put `LAN_HOST=<your LAN IP>` in `.env` (`ipconfig getifaddr en0`), then `docker compose up --build`. It sets `API_BASE_URL`, `PUBLIC_UI_URL` (the stage QR code) and `CORS_ALLOWED_ORIGINS` (localhost and the LAN address) for you. Open `http://<LAN IP>:4200/play/mde` on the phone. If `.env` already sets one of those three variables, your value wins. Re-run `up` when the IP changes.
+- **B. `ng serve` + API from Maven.** In `prompt-battle-ui`: `npm run start:lan`. It serves on `0.0.0.0`, points the UI at `http://<LAN IP>:8080` without touching `public/config.json`, and prints the phone URLs and the two variables to give the API (`CORS_ALLOWED_ORIGINS`, `PUBLIC_UI_URL`). `LAN_HOST=<ip>` overrides the detected address; add `-- --port 4300` if 4200 is busy.
+- **UI only:** `npm run start:fake:lan` (fake API inside the page; no backend, each device has its own event).
+
+For flow B the API reads its own `prompt-battle-api/.env`, not this folder's. Set `PUBLIC_UI_URL=http://<LAN IP>:4200` and `CORS_ALLOWED_ORIGINS=http://localhost:4200,http://<LAN IP>:4200` there. To check from the computer: `curl http://<LAN IP>:8080/actuator/health` (`UP`) and `curl http://<LAN IP>:4200/config.json` (your LAN IP).
+
+| What you see | Likely cause | Fix |
+|---|---|---|
+| The phone can't open the page | Different Wi-Fi, guest network or client isolation, VPN, or the macOS firewall | Same network, VPN off, allow Docker/`node` in System Settings → Network → Firewall |
+| Page loads, then a network error | The UI calls the wrong API address, or CORS doesn't list the LAN origin | `config.json` must show the LAN IP; check `CORS_ALLOWED_ORIGINS`; `docker compose up -d` |
+| UI container exits at start | `API_BASE_URL` isn't https, localhost or a private address | `docker compose logs ui` |
+| Stage QR still shows `localhost` | The API wasn't restarted after setting `LAN_HOST` (or `PUBLIC_UI_URL`) | `docker compose up -d` |
+| Worked yesterday, not today | The computer got a new IP | `ipconfig getifaddr en0`, update `LAN_HOST`, `docker compose up -d` |
+| `LAN_HOST` is ignored | `.env` also sets `API_BASE_URL`, `PUBLIC_UI_URL` or `CORS_ALLOWED_ORIGINS` (those win) | Remove them from `.env` |
 
 ## Freeze rules
 - Last deploy of both repos on **2026-11-26** (freeze), plus bug-fix deploys until 2026-12-01.

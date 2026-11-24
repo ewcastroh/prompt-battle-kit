@@ -298,6 +298,18 @@ Status values: **Accepted** (in force), **Superseded** (replaced by a later entr
 4. **Where it is written:** parent `CLAUDE.md` (Rules for every repo, Workflow), `docs/WORKFLOW.md`, `docs/PROMPTS.md`, `docs/DEPLOYMENT.md`, each child `CLAUDE.md`, the hook above, and Claude's memory.
 5. **Amends:** the phase-end commit rule ("commit at the end of each phase") now means a commit on the phase's branch, not on `main`.
 
+## D-029 · Way back to the city list, phone testing on the LAN — Accepted (2026-11-23)
+1. **Back to `/` (the city list).**
+   - **Admin sign-out redirects to `/`.** Forced sign-outs (a 401) keep the sign-in form and its reason.
+   - **The admin sign-in form links to `/`** ("See the cities").
+   - **The admin console nav has a visible link to `/`** next to "Sign out".
+   - **The stage has the link inside the settings popover,** not as a visible control, so nothing new shows on the projector. Player screens don't get it.
+2. **Phone testing during development (owner chose both flows).**
+   - **Docker Compose:** an optional `LAN_HOST` (the Mac's LAN IP) in `.env` sets the UI's `API_BASE_URL`, the API's `PUBLIC_UI_URL` (the QR code) and `CORS_ALLOWED_ORIGINS`. Without it, everything stays on `localhost`.
+   - **`ng serve`:** `npm run start:lan` serves on `0.0.0.0` with a git-ignored `config.json` that points at the LAN API. `npm run start:fake:lan` uses the in-browser fake API.
+   - **Phones reach the API directly, with no proxy,** so the per-IP join limit still sees each phone's own IP.
+   - **The Docker UI entrypoint accepts `http` for private-network hosts** (10/8, 172.16/12, 192.168/16, `*.local`). The production deploy script stays https-only.
+
 ---
 
 ## Open

@@ -25,6 +25,8 @@ cp .env.example .env   # fill in keys; never commit .env
 docker compose up --build   # available after the integration phase
 ```
 
+To open it from your phone on the same Wi-Fi, add `LAN_HOST=<your computer's LAN IP>` to `.env` (macOS: `ipconfig getifaddr en0`), run `docker compose up -d`, and open `http://<LAN IP>:4200/play/mde`. Details and troubleshooting: `docs/DEPLOYMENT.md` → "Testing on your phone".
+
 The two child folders are git-ignored here, so each keeps its own history.
 
 ## What's here
